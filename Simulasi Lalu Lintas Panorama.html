@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulasi Lalu Lintas Panorama</title>
+<style>
+:root{--bg:#f4f1e6;--fg:#2c332f;--card:#fff;--mut:#5d675f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e2321;--fg:#ecebe3;--card:#2a302d;--mut:#a9b3aa}}
+:root[data-theme="dark"]{--bg:#1e2321;--fg:#ecebe3;--card:#2a302d;--mut:#a9b3aa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:18px;margin:4px 0}
+canvas{width:100%;max-width:520px;height:auto;border-radius:10px;background:#f4f1e6}
+.bar{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;justify-content:center}
+button{border:1px solid var(--mut);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer}
+button.on{background:#6f826b;color:#fff;border-color:#6f826b}
+.card{background:var(--card);border-radius:10px;padding:10px 14px;max-width:520px;width:100%;box-sizing:border-box;margin-top:8px;font-size:14px}
+.card b{display:block;margin-top:6px}
+</style></head><body>
+<h1>Simulasi Simpang Panorama – Garlong/UPI</h1>
+<div class="bar"><span>Kecepatan:</span><button class="on" data-k="1">1×</button><button data-k="3">3×</button><button data-k="6">6×</button><button id="nb">🌙 Malam</button><button id="sb">🔊 Suara: nyala</button><button id="rb">↺ Reset</button></div>
+<canvas id="c" width="720" height="900"></canvas>
+<div class="card">
+<b>Fase 1 · Arus arteri Setiabudi (A &amp; B)</b>Lampu Jalan A, Jalan B dan putar balik hijau. Panorama merah, pejalan kaki merah (menunggu di zona aman).
+<b>Fase 2 · Arus keluar Panorama</b>Jalan A, Jalan B dan bukaan putar balik merah, tertahan di garis henti. Panorama hijau; kendaraan terbagi menuju Vitasari lewat Jalan A atau menuju Jalan B. Pejalan kaki tetap merah.
+<b>Fase 3 · Penyeberangan pejalan kaki</b>Semua lampu kendaraan merah mutlak. Pejalan kaki hijau 14 detik (4 dtk reaksi + 10 m ÷ 1,0 m/dtk).
+<b>Rekayasa rute</b>Kendaraan Jalan A (oranye) dilarang belok kanan ke Panorama: lurus, putar balik di atas, turun lewat Jalan B.
+</div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),AX=300,BX=420,LEN=32,WID=18;
+function mk(pts){const seg=[];let L=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push([L,d]);L+=d}return{pts,seg,L,stops:[]}}
+function at(p,s){let i=0;while(i<p.seg.length-1&&s>p.seg[i][0]+p.seg[i][1])i++;const a=p.pts[i],b=p.pts[i+1],t=Math.min(1,Math.max(0,(s-p.seg[i][0])/p.seg[i][1]));return{x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,a:Math.atan2(b[1]-a[1],b[0]-a[0])}}
+function find(p,f){for(let s=0;s<p.L;s++){const q=at(p,s);if(f(q.x,q.y))return s}return 1e9}
+const arc=[];for(let i=0;i<=12;i++){const t=Math.PI+Math.PI*i/12;arc.push([360+60*Math.cos(t),295+60*Math.sin(t)])}
+const arc2=[];for(let i=0;i<=12;i++){const t=Math.PI*i/12;arc2.push([360+60*Math.cos(t),480+60*Math.sin(t)])}
+const panOut=[[BX,462],[433,476],[470,488],[760,488]];
+const R={
+Astr:mk([[AX,930],[AX,-40]]),
+Avit:mk([[AX,930],[AX,485],[288,462],[268,449],[-40,449]]),
+Au:mk([[AX,930],[AX,295],...arc,[BX,295],[BX,930]]),
+Aup:mk([[AX,930],[AX,295],...arc,[BX,295],...panOut]),
+Bu:mk([[BX,-40],[BX,480],...arc2,[AX,480],[AX,-40]]),
+Bdn:mk([[BX,-40],[BX,930]]),
+Bpan:mk([[BX,-40],...panOut]),
+Pin:mk([[760,533],[470,533],[446,540],[BX,558],[BX,930]]),
+Pvit:mk([[760,533],[470,533],[440,533],[410,533],[380,533],[350,533],[320,533],[300,520],[300,480],[300,450],[290,435],[270,425],[240,425],[-40,425]])};
+const st=(p,sig,f)=>p.stops.push({sig,s:find(p,f)});
+['Astr','Avit','Au','Aup'].forEach(k=>st(R[k],'A',(x,y)=>x<310&&y<=650));
+st(R.Bu,'L4',(x,y)=>x>415&&y>=470);
+['Au','Bu','Bdn','Bpan'].forEach(k=>st(R[k],'B',(x,y)=>x>415&&y>=445));
+['Au','Bdn'].forEach(k=>st(R[k],'BZ',(x,y)=>x>415&&y>=590));
+st(R.Pin,'P',(x,y)=>x<=560);st(R.Pin,'BZ',(x,y)=>x<430&&y>=590);st(R.Pvit,'P',(x,y)=>x<=560);
+const PH=[
+{n:'Fase 1 · Arus Setiabudi A + B',d:20,g:['A','B','BZ','L4']},
+{n:'Fase 2 · Arus keluar Panorama',d:10,g:['P','BZ']},
+{n:'Fase 3 · Pejalan kaki (pelican)',d:16,g:[],ped:1}];
+let pa=0,uid=0,ph=0,pt=0,cars=[],peds=[],sp=1,tm={a:0,b:1,p:2,w:0};
+const sig={},yel={};
+const REF={L:213,R:507};
+let snd=true,AC=null,lastBeep=null,lastBeepAt=0,night=false;
+function beep(){if(!snd||!AC)return;const n=performance.now();if(n-lastBeepAt<250)return;lastBeepAt=n;try{const o=AC.createOscillator(),v=AC.createGain();o.type='square';o.frequency.value=880;v.gain.setValueAtTime(.0001,AC.currentTime);v.gain.exponentialRampToValueAtTime(.1,AC.currentTime+.01);v.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.14);o.connect(v).connect(AC.destination);o.start();o.stop(AC.currentTime+.15)}catch(e){}}
+function pedAudio(){const p=PH[ph],rem=p.d-pt;if(p.ped&&pt>=2&&rem<=5&&rem>0){const k=Math.ceil(rem);if(k!==lastBeep){lastBeep=k;beep()}}else lastBeep=null}
+function stepPeds(dt){
+const go=PH[ph].ped&&pt>=2;
+if(!PH[ph].ped){pa-=dt;if(pa<=0){pa=1.2+Math.random()*1.5;const sd=Math.random()<.5?0:1;if(peds.filter(o=>o.s===sd&&o.st==='wait').length<4)peds.push({s:sd,x:(sd?REF.R:REF.L)+Math.random()*16-8,y:608+Math.random()*24,st:'wait',dl:null,t:0})}}
+peds.forEach(o=>{
+if(o.st==='wait'){if(go){if(o.dl===null)o.dl=Math.random()*3;o.dl-=dt;if(o.dl<=0)o.st='walk'}}
+else if(o.st==='walk'){const tx=o.s?REF.L:REF.R,d=tx-o.x,k=46*dt;if(Math.abs(d)<=k){o.x=tx;o.st='done';o.t=0}else o.x+=Math.sign(d)*k}
+else o.t+=dt});
+peds=peds.filter(o=>!(o.st==='done'&&o.t>2))}
+const NC=document.createElement('canvas');NC.width=720;NC.height=900;
+(function(){const x=NC.getContext('2d');x.fillStyle='rgba(6,12,30,.62)';x.fillRect(0,0,720,900);x.globalCompositeOperation='destination-out';x.translate(360,620);x.scale(1,.36);const gr=x.createRadialGradient(0,0,20,0,0,175);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(.6,'rgba(0,0,0,.85)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.beginPath();x.arc(0,0,175,0,7);x.fill()})();
+function upd(){const p=PH[ph];['A','B','BZ','P','L4'].forEach(k=>{const on=p.g.includes(k);sig[k]=on&&(p.d-pt)>1.5;yel[k]=on&&!sig[k]})}
+function free(x,y){return !cars.some(o=>{const q=at(o.p,o.s);return Math.hypot(q.x-x,q.y-y)<55})}
+function spawn(k,col,tag){const p=R[k],q=at(p,0);const n=cars.filter(o=>o.p.pts[0][0]===p.pts[0][0]&&o.p.pts[0][1]===p.pts[0][1]&&o.v<5).length;if(n<5&&free(q.x,q.y))cars.push({p,s:0,v:60,col,tag,k,id:++uid})}
+function step(dt){
+pt+=dt;if(pt>=PH[ph].d){pt=0;ph=(ph+1)%PH.length;if(PH[ph].ped)tm.w=0}
+upd();pedAudio();
+tm.a-=dt;tm.b-=dt;tm.p-=dt;
+if(tm.a<=0){tm.a=3+Math.random()*2.5;const r=Math.random();r<.4?spawn('Astr','#7d8f78'):r<.6?spawn('Avit','#7d8f78'):spawn(Math.random()<.5?'Aup':'Au','#b0765a',1)}
+if(tm.b<=0){tm.b=3.5+Math.random()*2.5;{const q=Math.random();spawn(q<.35?'Bpan':q<.55?'Bu':'Bdn','#6b7f8a')}}
+if(tm.p<=0){tm.p=6+Math.random()*4;spawn(Math.random()<.5?'Pvit':'Pin','#8a8a6a')}
+stepPeds(dt);
+cars.forEach(car=>{
+const me=at(car.p,car.s),ca=Math.cos(me.a),sa=Math.sin(me.a),front=car.s+LEN/2;let lim=car.k==='Pin'?70:95;
+const brake=d=>Math.sqrt(2*200*Math.max(d,0));
+const rel=o=>{const q=at(o.p,o.s),dx=q.x-me.x,dy=q.y-me.y;return{o,f:dx*ca+dy*sa,l:Math.abs(-dx*sa+dy*ca),d:Math.hypot(dx,dy),c:Math.cos(q.a-me.a)}};
+const others=cars.filter(o=>o!==car).map(rel);
+car.p.stops.forEach(t=>{if(t.s<front-3)return;const d=t.s-front;
+if(!sig[t.sig])lim=Math.min(lim,brake(d));
+else if(d<70&&others.some(r=>r.f>d+8&&r.f<d+LEN+70&&r.l<15&&r.c>-.3&&r.o.v<8))lim=Math.min(lim,brake(d))});
+let cl=99;
+others.forEach(r=>{if(r.f>0&&r.f<100&&r.l<15&&r.c>-.3)cl=Math.min(cl,brake(r.f-LEN-6))});
+let hold=others.some(r=>r.d<LEN+16&&r.f>1&&r.c>-.3&&(r.o.id<car.id||r.l<15));
+car.g=(hold||cl<1)&&car.v<1?(car.g||0)+dt:0;
+if(hold)cl=0;
+if(car.g<3)lim=Math.min(lim,cl);
+car.v=car.v<lim?Math.min(lim,car.v+150*dt):Math.max(lim,car.v-320*dt);
+car.s+=car.v*dt});
+cars=cars.filter(o=>o.s<o.p.L)}
+function rr(x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r)}
+function lamp(x,y,k,lab,ped){
+g.fillStyle='#2f3634';rr(x-9,y-24,18,48,5);g.fill();
+const s=sig[k],y2=yel[k];
+[['#e0463c','#4a2a28',!s&&!y2],['#e8c53a','#4a442a',y2],['#4cc36a','#25402c',s]].forEach((a,i)=>{g.fillStyle=a[2]?a[0]:a[1];g.beginPath();g.arc(x,y-14+i*14,5,0,7);g.fill()});
+g.fillStyle=ped?'#efe9d3':'#2c332f';g.font='bold 12px system-ui';g.textAlign='center';g.fillText(lab,x,y+38)}
+function pedLamp(x,y){const p=PH[ph],rem=p.d-pt,on=p.ped&&pt>=2,gr=on&&(rem>5||Math.floor(pt*2)%2===0);g.fillStyle='#2f3634';rr(x-9,y-17,18,34,4);g.fill();
+g.fillStyle=on?'#4a2a28':'#e0463c';g.beginPath();g.arc(x,y-7,5,0,7);g.fill();g.fillStyle=gr?'#4cc36a':'#25402c';g.beginPath();g.arc(x,y+7,5,0,7);g.fill()}
+function draw(){
+g.fillStyle='#f4f1e6';g.fillRect(0,0,720,900);
+g.fillStyle='#d6d0b8';g.fillRect(232,0,256,900);
+g.fillStyle='#464f4f';g.fillRect(250,0,220,900);
+g.fillRect(40,385,215,80);g.fillRect(465,465,255,90);
+g.fillStyle='#464f4f';g.fillRect(246,387,8,76);g.fillRect(466,467,8,86);
+// buildings
+[[50,490,'Vitasari','#96735f'],[50,642,'Tiramisu Sulu','#7d8f78']].forEach(b=>{g.fillStyle='#eee6d2';g.strokeStyle='#4b544f';g.lineWidth=2;rr(b[0],b[1],120,110,6);g.fill();g.stroke();g.fillStyle=b[3];g.fillRect(b[0]+6,b[1]+6,108,20);g.fillStyle='#2c332f';g.font='11px system-ui';g.textAlign='center';g.fillText(b[2],b[0]+60,b[1]+70)});
+[[520,200],[640,300],[580,590],[620,720],[560,830]].forEach(t=>{g.fillStyle='#7d8f78';g.beginPath();g.arc(t[0],t[1],14,0,7);g.fill()});
+// median
+g.fillStyle='#c3c3b0';rr(350,295,20,170,8);g.fill();
+for(const y of [307,337,367,397,453]){g.fillStyle='#7d8f78';g.beginPath();g.arc(360,y,6,0,7);g.fill()}
+g.strokeStyle='#efe9d3';g.lineWidth=2;g.setLineDash([12,12]);g.beginPath();g.moveTo(360,650);g.lineTo(360,900);g.moveTo(90,425);g.lineTo(240,425);g.moveTo(480,510);g.lineTo(700,510);g.stroke();g.setLineDash([]);
+// zebra
+g.fillStyle='#efe9d3';for(let x=254;x<466;x+=22)g.fillRect(x,600,12,40);
+g.fillRect(252,652,96,4);g.fillRect(372,590,96,4);g.fillRect(372,470,96,4);
+// refuge
+[196,490].forEach(x=>{g.fillStyle='#8fa48a';g.strokeStyle='#4b544f';g.lineWidth=2;rr(x,600,34,40,6);g.fill();g.stroke();g.fillStyle='#c3c3b0';[608,632].forEach(y=>{g.beginPath();g.arc(x+(x<300?6:28),y,3,0,7);g.fill()})});
+// sign
+g.save();g.translate(0,-53);
+g.fillStyle='#fff';g.strokeStyle='#d33';g.lineWidth=4;g.beginPath();g.arc(360,478,17,0,7);g.fill();g.stroke();
+g.strokeStyle='#222';g.lineWidth=3;g.beginPath();g.moveTo(354,486);g.lineTo(354,472);g.lineTo(366,472);g.moveTo(362,467);g.lineTo(367,472);g.lineTo(362,477);g.stroke();
+g.strokeStyle='#d33';g.beginPath();g.moveTo(349,467);g.lineTo(371,489);g.stroke();
+g.restore();
+// labels
+g.fillStyle='#efe9d3';g.font='bold 13px system-ui';g.textAlign='center';g.fillText('Jalan A ↑',AX,760);g.fillText('Jalan B ↓',BX,760);
+g.fillStyle='#2c332f';g.fillText('Garlong / UPI',360,220);g.fillText('Panorama →',630,460);g.fillText('← Vitasari',110,375);
+// cars
+cars.forEach(o=>{const q=at(o.p,o.s);g.save();g.translate(q.x,q.y);g.rotate(q.a);g.fillStyle='#22282a';rr(-LEN/2-1,-WID/2-1,LEN+2,WID+2,5);g.fill();g.fillStyle=o.col;rr(-LEN/2,-WID/2,LEN,WID,4);g.fill();g.fillStyle='#e8e4d2';rr(-6,-6,14,12,2);g.fill();g.restore()});
+peds.forEach(o=>{g.fillStyle='#e6d9b0';g.strokeStyle='#333';g.lineWidth=1;g.beginPath();g.arc(o.x,o.y,4,0,7);g.fill();g.stroke()});
+if(night){g.drawImage(NC,0,0);g.save();g.translate(360,620);g.scale(1,.36);const w=g.createRadialGradient(0,0,10,0,0,150);w.addColorStop(0,'rgba(255,238,180,.30)');w.addColorStop(1,'rgba(255,238,180,0)');g.fillStyle=w;g.beginPath();g.arc(0,0,150,0,7);g.fill();g.restore()}
+[[238,590],[482,590]].forEach(p=>{g.fillStyle=night?'#ffe9a8':'#8b8f8a';g.strokeStyle='#2c332f';g.lineWidth=1.5;g.beginPath();g.arc(p[0],p[1],5,0,7);g.fill();g.stroke()});
+// lamps
+lamp(336,620,'A','L3',1);lamp(360,620,'A','L1',1);lamp(360,490,'L4','Lampu 4');
+lamp(560,415,'P','Panorama');
+pedLamp(232,620);pedLamp(488,620);
+// hud
+g.fillStyle='rgba(44,51,47,.88)';rr(10,845,300,46,8);g.fill();
+g.fillStyle='#f4f1e6';g.textAlign='left';g.font='bold 13px system-ui';g.fillText(PH[ph].n.length>34?PH[ph].n.slice(0,34)+'…':PH[ph].n,20,864);
+g.font='12px system-ui';g.fillText((PH[ph].ped&&pt>=2?'Pejalan hijau ':'Sisa ')+Math.ceil(PH[ph].d-pt)+' dtk  |  oranye = wajib putar balik',20,882);
+}
+let last=performance.now();
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;for(let i=0;i<sp;i++)step(dt);draw();requestAnimationFrame(loop)}
+document.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{sp=+b.dataset.k;document.querySelectorAll('button[data-k]').forEach(x=>x.classList.toggle('on',x===b))});
+const nb=document.getElementById('nb'),sb=document.getElementById('sb'),rb=document.getElementById('rb');
+nb.onclick=()=>{night=!night;nb.textContent=night?'☀️ Siang':'🌙 Malam';nb.classList.toggle('on',night)};
+sb.onclick=()=>{snd=!snd;sb.textContent=snd?'🔊 Suara: nyala':'🔇 Suara: mati';sb.classList.toggle('on',!snd)};
+rb.onclick=()=>{cars=[];peds=[];ph=0;pt=0;pa=0;lastBeep=null;tm={a:0,b:1,p:2,w:0};upd()};
+addEventListener('pointerdown',()=>{if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume()});
+window.PanoramaSim={state:()=>({phase:ph,t:pt,signals:{...sig},pedGreen:!!(PH[ph].ped&&pt>=2),night,vehicles:cars.length,waiting:peds.filter(o=>o.st==='wait').length}),reset:()=>rb.click()};
+upd();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI Engine Testbed — Smart Pelican Crossing</title>
+<style>
+    :root {
+        --bg: #f0f2f5; --card: #ffffff; --ink: #222; --muted: #6b7280;
+        --accent: #0056b3; --safe: #1b9c55; --unsafe: #d64545; --warn: #e67e22;
+        --border: #e2e5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg); margin: 0; padding: 20px 16px 60px;
+        color: var(--ink);
+        padding-top: calc(20px + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    header { margin-bottom: 20px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    p.subtitle { color: var(--muted); margin: 0; font-size: 14px; }
+    .badge { display: inline-block; background: #eef4ff; color: var(--accent); font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px; margin-bottom: 8px; }
+
+    .grid { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .card h2 { font-size: 15px; margin: 0 0 14px; }
+    .card h3 { font-size: 13px; margin: 18px 0 8px; color: var(--muted); text-transform: none; }
+
+    label { display: block; font-size: 13px; margin: 12px 0 4px; font-weight: 600; }
+    label .val { font-weight: 400; color: var(--accent); }
+    input[type=range] { width: 100%; }
+    select, input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; }
+
+    button { width: 100%; padding: 11px; font-size: 14px; font-weight: 700; border: none; border-radius: 7px; color: #fff; cursor: pointer; margin-top: 10px; }
+    .btn-primary { background: var(--accent); }
+    .btn-primary:hover { background: #003d82; }
+    .btn-secondary { background: #495057; }
+    .btn-secondary:hover { background: #343a40; }
+
+    .decision-panel { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+    .decision-panel.safe { background: #eafaf0; border: 1px solid var(--safe); }
+    .decision-panel.unsafe { background: #fdecec; border: 1px solid var(--unsafe); }
+    .decision-icon { font-size: 34px; }
+    .decision-title { font-size: 18px; font-weight: 800; }
+    .decision-panel.safe .decision-title { color: var(--safe); }
+    .decision-panel.unsafe .decision-title { color: var(--unsafe); }
+    .decision-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    .conf-bar-track { background: #e9ecef; border-radius: 20px; height: 10px; overflow: hidden; margin-top: 6px; }
+    .conf-bar-fill { height: 100%; border-radius: 20px; transition: width .3s ease; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .reasoning { font-size: 13px; line-height: 1.6; background: #f8f9fb; border-radius: 8px; padding: 10px 12px; margin-top: 6px; }
+    .reasoning li { margin-bottom: 3px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
+    .stat-box { background: #f8f9fb; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-box .num { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .stat-box .lab { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .confusion { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .conf-cell { border-radius: 8px; padding: 10px; font-size: 12px; }
+    .conf-cell b { display: block; font-size: 17px; }
+    .cc-ok { background: #eafaf0; color: #157347; }
+    .cc-fp { background: #fdecec; color: #b02a2a; }
+    .cc-fn { background: #fff6e5; color: #b5750a; }
+    .cc-ok2 { background: #eaf1fc; color: #0b4f9c; }
+
+    .log-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+    .log-tag { font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 11px; }
+    .tag-match { background: #eafaf0; color: #157347; }
+    .tag-mismatch { background: #fdecec; color: #b02a2a; }
+
+    .note { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.5; }
+    .video-sensor { margin-top: 14px; padding: 12px; background: #eef7ff; border: 1px solid #b9d8f2; border-radius: 8px; }
+    .video-sensor h3 { margin: 0 0 6px; color: var(--accent); }
+    .video-sensor-status { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .video-sensor button { margin-top: 8px; padding: 8px; font-size: 12px; }
+    .sensor-table-wrap { overflow-x: auto; margin-top: 8px; }
+    .sensor-table { min-width: 900px; font-size: 11px; }
+    .sensor-table th, .sensor-table td { padding: 6px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <span class="badge">AI ENGINE v1 — TESTBED</span>
+        <h1>Pengujian &amp; Validasi Algoritma Gap-Acceptance</h1>
+        <p class="subtitle">Kamera + AI memprediksi celah aman dari jarak &amp; kecepatan kendaraan (bukan sekadar hitung jumlah mobil). Engine ini sama persis dengan yang dipakai di web simulasi visual.</p>
+    </header>
+
+    <div class="grid">
+        <!-- KONTROL -->
+        <div class="card">
+            <h2>⚙️ Parameter Skenario</h2>
+
+            <label>Jumlah kendaraan mendekat <span class="val" id="lbl-count">3</span></label>
+            <input type="range" id="in-count" min="0" max="6" value="3">
+
+            <label>Kecepatan rata-rata <span class="val" id="lbl-speed">35 km/h</span></label>
+            <input type="range" id="in-speed" min="10" max="70" value="35">
+
+            <label>Variasi kecepatan antar mobil <span class="val" id="lbl-var">Sedang</span></label>
+            <input type="range" id="in-var" min="0" max="2" value="1">
+
+            <label>Lebar jalan penyeberangan <span class="val" id="lbl-width">7 m</span></label>
+            <input type="range" id="in-width" min="4" max="14" value="7">
+
+            <label>Margin keamanan <span class="val" id="lbl-margin">2.0 s</span></label>
+            <input type="range" id="in-margin" min="0" max="5" step="0.5" value="2">
+
+            <label>Noise sensor (error pengukuran) <span class="val" id="lbl-noise">10%</span></label>
+            <input type="range" id="in-noise" min="0" max="30" value="10">
+
+            <button class="btn-primary" onclick="jalankanSkenarioBaru()">🎲 Generate Skenario Baru</button>
+            <button class="btn-secondary" onclick="jalankanValidasiMassal()">🧪 Jalankan Validasi (100 skenario)</button>
+
+            <p class="note">
+                <b>Noise sensor</b> mensimulasikan error kamera/radar dalam mengukur jarak &amp; kecepatan asli kendaraan. AI hanya melihat data yang sudah ada noise-nya — sama seperti sensor sungguhan.
+            </p>
+
+            <div class="video-sensor">
+                <h3>📹 Sensor dari Traffic Video</h3>
+                <div class="video-sensor-status" id="video-sensor-status">Belum ada data dari video-deteksi.</div>
+                <div class="video-sensor-status" id="video-camera-summary">Menunggu gabungan kamera A, B, dan Panorama.</div>
+                <div class="video-sensor-status" id="video-validation-status">Validasi data video: menunggu snapshot.</div>
+                <button class="btn-secondary" onclick="gunakanDataVideo()">🔄 Gunakan Data Video</button>
+            </div>
+        </div>
+
+        <!-- HASIL -->
+        <div>
+            <div class="card">
+                <h2>🧠 Keputusan AI (skenario saat ini)</h2>
+                <div id="decision-panel" class="decision-panel safe">
+                    <div class="decision-icon" id="decision-icon">✅</div>
+                    <div>
+                        <div class="decision-title" id="decision-title">AMAN — Izinkan Penyeberang</div>
+                        <div class="decision-sub" id="decision-sub">Celah terdekat lebih besar dari celah kritis</div>
+                    </div>
+                </div>
+
+                <label style="margin-top:0;">Skor Kepercayaan AI <span class="val" id="lbl-conf">—</span></label>
+                <div class="conf-bar-track"><div class="conf-bar-fill" id="conf-fill" style="width:0%; background:#1b9c55;"></div></div>
+
+                <h3>Data sensor terukur (dengan noise) yang dilihat AI</h3>
+                <table id="car-table">
+                    <thead><tr><th>Kendaraan</th><th>Kamera</th><th class="num">Jarak (m)</th><th class="num">Kecepatan (km/h)</th><th class="num">Estimasi tiba (s)</th></tr></thead>
+                    <tbody id="car-table-body"></tbody>
+                </table>
+
+                <h3>Alasan keputusan (explainability)</h3>
+                <ul class="reasoning" id="reasoning-list"></ul>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+                <h2>📊 Hasil Validasi Massal <span id="validasi-count" style="color:var(--muted); font-weight:400; font-size:12px;"></span></h2>
+                <div class="stat-grid">
+                    <div class="stat-box"><div class="num" id="stat-accuracy">—</div><div class="lab">Akurasi Keseluruhan</div></div>
+                    <div class="stat-box"><div class="num" id="stat-avgconf">—</div><div class="lab">Rata-rata Keyakinan</div></div>
+                    <div class="stat-box"><div class="num" id="stat-total">—</div><div class="lab">Skenario Diuji</div></div>
+                </div>
+                <div class="confusion" id="confusion-grid" style="display:none;">
+                    <div class="conf-cell cc-ok"><b id="cc-ok-n">0</b>AI aman, faktanya memang aman ✅</div>
+                    <div class="conf-cell cc-ok2"><b id="cc-tn-n">0</b>AI tahan, faktanya memang belum aman ✅</div>
+                    <div class="conf-cell cc-fp"><b id="cc-fp-n">0</b>⚠️ AI bilang aman, padahal BERBAHAYA (fatal error)</div>
+                    <div class="conf-cell cc-fn"><b id="cc-fn-n">0</b>AI bilang tahan, padahal sebenarnya aman (terlalu hati-hati)</div>
+                </div>
+                <p class="note">"Fakta" (ground truth) dihitung dari data kendaraan yang <i>sebenarnya</i> (tanpa noise) — jadi ini menguji seberapa tahan AI terhadap error sensor, bukan cuma menguji logikanya di kondisi ideal.</p>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+                <h2>🕓 Riwayat Skenario Terakhir</h2>
+                <div id="log-list"></div>
+            </div>
+        </div>
+    </div>
+    <section class="card sensor-data-card" aria-labelledby="sensor-data-title">
+        <h2 id="sensor-data-title">📊 Data Sensor Terukur</h2>
+        <h3>Metrik tiap kamera</h3>
+        <div class="sensor-table-wrap">
+            <table class="sensor-table" id="video-camera-table">
+                <thead><tr><th>Kamera</th><th>Status feed</th><th>Frame / waktu</th><th>Kendaraan terdeteksi</th><th>Mendekat</th><th>Jarak rata-rata</th><th>Kecepatan rata-rata</th><th>Kepadatan</th><th>Antrean</th><th>Kalibrasi</th><th>Kontrol sinyal</th></tr></thead>
+                <tbody id="video-camera-table-body"><tr><td colspan="11">Menunggu snapshot sensor.</td></tr></tbody>
+            </table>
+        </div>
+        <h3>Semua track kendaraan</h3>
+        <div class="sensor-table-wrap">
+            <table class="sensor-table" id="video-track-table">
+                <thead><tr><th>Kamera</th><th>ID track</th><th>Kelas</th><th>Posisi x/y</th><th>Jarak (m)</th><th>Kecepatan (m/s)</th><th>Kecepatan (km/h)</th><th>ETA (s)</th><th>Arah</th><th>Teramati (s)</th><th>Confidence</th></tr></thead>
+                <tbody id="video-track-table-body"><tr><td colspan="11">Menunggu snapshot sensor.</td></tr></tbody>
+            </table>
+        </div>
+        <h3>Deteksi pejalan kaki Kamera 1</h3>
+        <div class="sensor-table-wrap">
+            <table class="sensor-table" id="video-pedestrian-table">
+                <thead><tr><th>Kamera</th><th>ID</th><th>Posisi x/y</th><th>Ukuran w/h</th><th>Confidence</th><th>Di refuge zone</th></tr></thead>
+                <tbody id="video-pedestrian-table-body"><tr><td colspan="6">Menunggu snapshot sensor.</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<!-- AI Engine dimuat dari file terpisah -> satu logika AI dipakai bersama -->
+<script src="ai-engine.js"></script>
+<script>
+// ============================= UI / TESTBED LOGIC =============================
+function gaussianNoise(stdDev) {
+    // Box-Muller transform
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * stdDev;
+}
+
+const el = id => document.getElementById(id);
+
+function readParams() {
+    const count = +el('in-count').value;
+    const avgSpeedKmh = +el('in-speed').value;
+    const varLevel = +el('in-var').value; // 0,1,2
+    const widthM = +el('in-width').value;
+    const marginS = +el('in-margin').value;
+    const noisePct = +el('in-noise').value;
+
+    el('lbl-count').innerText = count;
+    el('lbl-speed').innerText = avgSpeedKmh + ' km/h';
+    el('lbl-var').innerText = ['Rendah', 'Sedang', 'Tinggi'][varLevel];
+    el('lbl-width').innerText = widthM + ' m';
+    el('lbl-margin').innerText = marginS.toFixed(1) + ' s';
+    el('lbl-noise').innerText = noisePct + '%';
+
+    return { count, avgSpeedKmh, varLevel, widthM, marginS, noisePct };
+}
+
+['in-count','in-speed','in-var','in-width','in-margin','in-noise'].forEach(id => {
+    el(id).addEventListener('input', readParams);
+});
+
+function buatSkenarioAcak(p) {
+    const varSpread = [3, 10, 22][p.varLevel]; // km/h spread
+    const cars = [];
+    for (let i = 0; i < p.count; i++) {
+        const trueDistance = 10 + Math.random() * 140; // meter
+        const trueSpeedKmh = AIEngine.clamp(p.avgSpeedKmh + (Math.random() * 2 - 1) * varSpread, 5, 90);
+        cars.push({ trueDistance_m: trueDistance, trueSpeed_mps: trueSpeedKmh / 3.6 });
+    }
+    return cars;
+}
+
+function terapkanNoiseSensor(cars, noisePct) {
+    return cars.map(c => {
+        const distNoise = gaussianNoise(c.trueDistance_m * (noisePct / 100) * 0.6);
+        const speedNoise = gaussianNoise(c.trueSpeed_mps * (noisePct / 100) * 0.6);
+        return {
+            distance_m: Math.max(1, c.trueDistance_m + distNoise),
+            speed_mps: Math.max(0.5, c.trueSpeed_mps + speedNoise)
+        };
+    });
+}
+
+let history = [];
+let validasiStats = null;
+const SENSOR_STORAGE_KEY = 'pelican-crossing-video-sensor';
+let lastVideoSnapshot = '';
+
+function gunakanDataVideo() {
+    let rawSnapshot;
+    try {
+        rawSnapshot = localStorage.getItem(SENSOR_STORAGE_KEY);
+    } catch (error) {
+        el('video-sensor-status').innerText = 'Penyimpanan browser tidak dapat diakses. Buka kedua halaman dari Live Server yang sama.';
+        return;
+    }
+    if (!rawSnapshot) {
+        el('video-sensor-status').innerText = 'Belum ada snapshot. Jalankan video-deteksi.html dan putar video terlebih dahulu.';
+        return;
+    }
+    if (rawSnapshot === lastVideoSnapshot) return;
+    lastVideoSnapshot = rawSnapshot;
+
+    let snapshot;
+    try {
+        snapshot = JSON.parse(rawSnapshot);
+    } catch (error) {
+        el('video-sensor-status').innerText = 'Data dari video-deteksi tidak valid. Jalankan analisis video lagi.';
+        return;
+    }
+
+    snapshot = AIEngine.ingestSensorSnapshot(snapshot) || snapshot;
+
+    const cameraVehicles = snapshot.cameras && typeof snapshot.cameras === 'object'
+        ? Object.entries(snapshot.cameras).flatMap(([camera, vehicles]) => (Array.isArray(vehicles) ? vehicles : []).map(vehicle => ({ ...vehicle, camera: vehicle.camera || camera })))
+        : [];
+    const measuredCars = snapshot.dataVersion === 1 && Array.isArray(snapshot.vehicles)
+        ? snapshot.vehicles
+        : cameraVehicles.length
+            ? cameraVehicles
+            : (Array.isArray(snapshot.vehicles) ? snapshot.vehicles : []);
+    const p = readParams();
+    const engineParams = { crossingWidth_m: p.widthM, pedSpeed_mps: 1.2, marginSeconds: p.marginS, observationLength_m: Number(snapshot.observationLength_m) || 20, requireActiveCameras: true };
+    const aiResult = AIEngine.computeDecision(measuredCars, engineParams);
+    renderDecision(aiResult, measuredCars);
+    const capturedAt = new Date(snapshot.capturedAt);
+    const updatedAt = Number.isNaN(capturedAt.getTime()) ? 'waktu tidak diketahui' : capturedAt.toLocaleTimeString();
+    const videoTime = Number.isFinite(snapshot.videoTime) ? ` · posisi video ${snapshot.videoTime.toFixed(1)} dtk` : '';
+    const cameraMetrics = snapshot.cameraMetrics || {};
+    const cameraCounts = ['A', 'B', 'P'].map(camera => {
+        const count = cameraMetrics[camera]?.vehicleCount ?? snapshot.cameras?.[camera]?.length ?? 0;
+        return `${camera}:${count}`;
+    }).join(' · ');
+    const cameraMeasurements = ['A', 'P', 'B'].map(camera => {
+        const metrics = cameraMetrics[camera];
+        if (!metrics) return `${camera}: belum ada metrik`;
+        const density = metrics.trafficDensity?.vehiclesPer100m ?? 0;
+        const queue = camera === 'A' ? '' : ` · antre ${Number(metrics.queueLength_m || 0).toFixed(1)} m`;
+        return `${camera}: ${metrics.vehicleCount} kend · ${Number(metrics.averageSpeed_kmh || 0).toFixed(1)} km/jam · ${Number(density).toFixed(1)}/100 m${queue}`;
+    }).join(' | ');
+    const refugeCount = snapshot.refugeOccupancy?.count;
+    const cameraTimes = snapshot.cameraTimes ? Object.values(snapshot.cameraTimes).filter(time => Number.isFinite(time)) : [];
+    const syncDelta = cameraTimes.length > 1 ? Math.max(...cameraTimes) - Math.min(...cameraTimes) : null;
+    const syncText = syncDelta === null ? '' : ` · sinkronisasi ±${syncDelta.toFixed(2)} dtk`;
+    el('video-sensor-status').innerText = `${measuredCars.length} kendaraan gabungan · kepadatan ${aiResult.trafficDensity.level.toLowerCase()} ${aiResult.trafficDensity.vehiclesPer100m.toFixed(1)}/100 m · diperbarui ${updatedAt}${videoTime} · keputusan ${aiResult.safe ? 'AMAN' : 'TAHAN'}`;
+    el('video-camera-summary').innerText = `Kamera A/B/P: ${cameraCounts}${syncText} · ${cameraMeasurements} · Refuge: ${refugeCount ?? 'n/a'}`;
+    renderVideoSensorTables(snapshot);
+    renderVideoValidation(snapshot, measuredCars, syncDelta);
+}
+
+function renderVideoSensorTables(snapshot) {
+    const cameraLabels = { A: 'Kamera 1 · Jalan A', P: 'Kamera 2 · Panorama', B: 'Kamera 3 · Jalan B' };
+    const format = (value, digits = 1) => value === null || value === undefined || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(digits);
+    const cameraMetrics = snapshot.cameraMetrics || {};
+    const cameraStatus = snapshot.cameraStatus || {};
+    const frameSizes = snapshot.cameraFrameSizes || {};
+    const cameraTimes = snapshot.cameraTimes || {};
+    const signalControl = snapshot.signalControl || {};
+    const cameraBody = document.getElementById('video-camera-table-body');
+    const cameraRows = ['A', 'P', 'B'].map(camera => {
+        const metrics = cameraMetrics[camera] || {};
+        const status = cameraStatus[camera] || {};
+        const frame = frameSizes[camera] || {};
+        const feedStatus = status.playing ? 'Aktif · memutar' : status.loaded ? 'Jeda' : status.hasSource ? 'Memuat' : 'Belum ada sumber';
+        const frameTime = `${frame.width && frame.height ? `${frame.width}×${frame.height}` : '—'} · ${format(cameraTimes[camera])} s`;
+        const detectedVehicleCount = metrics.vehicleCount ?? snapshot.cameras?.[camera]?.length ?? 0;
+        const density = metrics.trafficDensity?.vehiclesPer100m;
+        const queue = camera === 'A' ? null : metrics.queueLength_m;
+        const control = camera === 'P'
+            ? signalControl.panoramaGapOut ? 'Gap-out' : 'Gap monitor'
+            : camera === 'B'
+                ? signalControl.jalanBSpillback ? 'Spillback override' : 'Queue monitor'
+                : `Refuge ${snapshot.refugeOccupancy?.count ?? 'n/a'}`;
+        return [cameraLabels[camera], feedStatus, frameTime, detectedVehicleCount, metrics.approachingCount, `${format(metrics.averageDistance_m)} m`, `${format(metrics.averageSpeed_mps)} m/s · ${format(metrics.averageSpeed_kmh)} km/j`, density === undefined ? '—' : `${format(density)} /100 m`, queue === null || queue === undefined ? '—' : `${format(queue)} m · ${metrics.queuedVehicleCount || 0} antre`, `${format(metrics.calibration_m, 0)} m`, control];
+    });
+    cameraBody.replaceChildren();
+    cameraRows.forEach(values => {
+        const row = document.createElement('tr');
+        values.forEach(value => {
+            const cell = document.createElement('td');
+            cell.textContent = value === null || value === undefined ? '—' : String(value);
+            row.appendChild(cell);
+        });
+        cameraBody.appendChild(row);
+    });
+
+    const tracks = Array.isArray(snapshot.measuredVehicles) ? snapshot.measuredVehicles : snapshot.vehicles || [];
+    const trackBody = document.getElementById('video-track-table-body');
+    trackBody.replaceChildren();
+    if (!tracks.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 11;
+        cell.textContent = 'Belum ada track kendaraan pada snapshot ini.';
+        row.appendChild(cell);
+        trackBody.appendChild(row);
+        return;
+    }
+
+    tracks.forEach((track, index) => {
+        const speedKmh = track.speed_kmh ?? (track.speed_mps === null || track.speed_mps === undefined ? null : track.speed_mps * 3.6);
+        const position = Number.isFinite(track.x) && Number.isFinite(track.y) ? `${format(track.x, 0)}, ${format(track.y, 0)}` : '—';
+        const values = [cameraLabels[track.camera] || track.camera || '—', track.id ?? `#${index + 1}`, track.className || '—', position, `${format(track.distance_m)} m`, `${format(track.speed_mps, 2)} m/s`, `${format(speedKmh)} km/j`, `${format(track.arrivalTime_s)} s`, track.approaching === undefined ? '—' : track.approaching ? 'Mendekat' : 'Menjauh/diam', `${format(track.observedSeconds)} s`, track.score === null || track.score === undefined ? '—' : `${format(track.score * 100, 0)}%`];
+        const row = document.createElement('tr');
+        values.forEach(value => {
+            const cell = document.createElement('td');
+            cell.textContent = String(value);
+            row.appendChild(cell);
+        });
+        trackBody.appendChild(row);
+    });
+
+    const pedestrians = Array.isArray(snapshot.pedestrians) ? snapshot.pedestrians : [];
+    const pedestrianBody = document.getElementById('video-pedestrian-table-body');
+    pedestrianBody.replaceChildren();
+    if (!pedestrians.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.textContent = 'Belum ada pejalan kaki terdeteksi pada snapshot ini.';
+        row.appendChild(cell);
+        pedestrianBody.appendChild(row);
+        return;
+    }
+    pedestrians.forEach((person, index) => {
+        const values = ['Kamera 1 · Jalan A', person.id ?? `#${index + 1}`, `${format(person.x, 0)}, ${format(person.y, 0)}`, `${format(person.w, 0)} × ${format(person.h, 0)}`, person.confidence === null || person.confidence === undefined ? '—' : `${format(person.confidence * 100, 0)}%`, person.inRefugeZone ? 'Ya' : 'Tidak'];
+        const row = document.createElement('tr');
+        values.forEach(value => {
+            const cell = document.createElement('td');
+            cell.textContent = String(value);
+            row.appendChild(cell);
+        });
+        pedestrianBody.appendChild(row);
+    });
+}
+
+function renderVideoValidation(snapshot, measuredCars, syncDelta) {
+    const cameras = snapshot.cameras && typeof snapshot.cameras === 'object' ? snapshot.cameras : {};
+    const cameraKeys = ['A', 'B', 'P'];
+    const completeCameras = cameraKeys.filter(camera => Array.isArray(cameras[camera])).length;
+    const activeCameras = cameraKeys.filter(camera => snapshot.cameraStatus?.[camera]?.playing).length;
+    const hasSynchronizedTimes = snapshot.cameraTimes && cameraKeys.every(camera => Number.isFinite(snapshot.cameraTimes[camera]));
+    const valid = completeCameras === cameraKeys.length && activeCameras === cameraKeys.length && hasSynchronizedTimes && syncDelta !== null && syncDelta <= 0.2;
+    const status = valid ? 'VALID' : completeCameras === 0 ? 'BELUM ADA DATA' : 'SEBAGIAN / PERLU CEK VIDEO';
+    const details = `${completeCameras}/3 kamera · ${activeCameras}/3 aktif · ${measuredCars.length} kendaraan gabungan${syncDelta === null ? '' : ` · selisih waktu ${syncDelta.toFixed(2)} dtk`}`;
+    el('video-validation-status').innerText = `Validasi data video: ${status} · ${details}`;
+}
+
+window.addEventListener('storage', event => {
+    if (event.key === SENSOR_STORAGE_KEY) gunakanDataVideo();
+});
+setInterval(gunakanDataVideo, 750);
+
+function jalankanSkenarioBaru() {
+    const p = readParams();
+    const trueCars = buatSkenarioAcak(p);
+    const measuredCars = terapkanNoiseSensor(trueCars, p.noisePct);
+
+    const engineParams = { crossingWidth_m: p.widthM, pedSpeed_mps: 1.2, marginSeconds: p.marginS };
+    const aiResult = AIEngine.computeDecision(measuredCars, engineParams);
+    const trueResult = AIEngine.computeDecision(
+        trueCars.map(c => ({ distance_m: c.trueDistance_m, speed_mps: c.trueSpeed_mps })),
+        engineParams
+    );
+
+    renderDecision(aiResult, measuredCars);
+
+    const match = aiResult.safe === trueResult.safe;
+    history.unshift({ aiSafe: aiResult.safe, trueSafe: trueResult.safe, match, conf: aiResult.confidence, n: trueCars.length });
+    history = history.slice(0, 10);
+    renderLog();
+
+    return { aiResult, trueResult, match };
+}
+
+function renderDecision(result, cars) {
+    const panel = el('decision-panel');
+    panel.className = 'decision-panel ' + (result.safe ? 'safe' : 'unsafe');
+    el('decision-icon').innerText = result.safe ? '✅' : '⛔';
+    el('decision-title').innerText = result.safe ? 'AMAN — Izinkan Penyeberang' : 'BELUM AMAN — Tahan Penyeberang';
+    el('decision-sub').innerText = `Celah terdekat ${isFinite(result.nearestGap) ? result.nearestGap.toFixed(1) + 's' : '∞'} vs celah kritis ${result.criticalGap.toFixed(1)}s`;
+
+    const confPct = Math.round(result.confidence * 100);
+    el('lbl-conf').innerText = confPct + '%';
+    const fill = el('conf-fill');
+    fill.style.width = confPct + '%';
+    fill.style.background = result.safe ? '#1b9c55' : '#d64545';
+
+    const tbody = el('car-table-body');
+    tbody.innerHTML = '';
+    if (cars.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#999;">Tidak ada kendaraan terdeteksi</td></tr>';
+    } else {
+        cars.forEach((c, i) => {
+            const t = c.speed_mps > 0 ? (c.distance_m / c.speed_mps).toFixed(1) : '—';
+            tbody.innerHTML += `<tr><td>Mobil ${i + 1}</td><td>${c.camera || 'A'}</td><td class="num">${c.distance_m.toFixed(1)}</td><td class="num">${(c.speed_mps * 3.6).toFixed(1)}</td><td class="num">${t}</td></tr>`;
+        });
+    }
+
+    el('reasoning-list').innerHTML = result.reasoning.map(r => `<li>${r}</li>`).join('');
+}
+
+function renderLog() {
+    el('log-list').innerHTML = history.map(h => `
+        <div class="log-item">
+            <span>${h.n} kendaraan · AI: ${h.aiSafe ? 'Aman' : 'Tahan'} · Fakta: ${h.trueSafe ? 'Aman' : 'Tahan'} · Keyakinan ${Math.round(h.conf * 100)}%</span>
+            <span class="log-tag ${h.match ? 'tag-match' : 'tag-mismatch'}">${h.match ? 'COCOK' : 'BEDA'}</span>
+        </div>
+    `).join('') || '<p class="note">Belum ada skenario dijalankan.</p>';
+}
+
+function jalankanValidasiMassal() {
+    const p = readParams();
+    const N = 100;
+    let correct = 0, confSum = 0;
+    let okSafe = 0, okUnsafe = 0, falsePositive = 0, falseNegative = 0;
+
+    for (let i = 0; i < N; i++) {
+        const trueCars = buatSkenarioAcak(p);
+        const measuredCars = terapkanNoiseSensor(trueCars, p.noisePct);
+        const engineParams = { crossingWidth_m: p.widthM, pedSpeed_mps: 1.2, marginSeconds: p.marginS };
+
+        const aiResult = AIEngine.computeDecision(measuredCars, engineParams);
+        const trueResult = AIEngine.computeDecision(
+            trueCars.map(c => ({ distance_m: c.trueDistance_m, speed_mps: c.trueSpeed_mps })),
+            engineParams
+        );
+
+        confSum += aiResult.confidence;
+        if (aiResult.safe === trueResult.safe) {
+            correct++;
+            if (trueResult.safe) okSafe++; else okUnsafe++;
+        } else {
+            if (aiResult.safe && !trueResult.safe) falsePositive++; // BAHAYA
+            if (!aiResult.safe && trueResult.safe) falseNegative++; // terlalu hati-hati
+        }
+    }
+
+    el('validasi-count').innerText = `(${N} skenario acak, noise ${p.noisePct}%)`;
+    el('stat-accuracy').innerText = ((correct / N) * 100).toFixed(1) + '%';
+    el('stat-avgconf').innerText = ((confSum / N) * 100).toFixed(1) + '%';
+    el('stat-total').innerText = N;
+
+    el('confusion-grid').style.display = 'grid';
+    el('cc-ok-n').innerText = okSafe;
+    el('cc-tn-n').innerText = okUnsafe;
+    el('cc-fp-n').innerText = falsePositive;
+    el('cc-fn-n').innerText = falseNegative;
+}
+
+// init
+readParams();
+jalankanSkenarioBaru();
+gunakanDataVideo();
+</script>
+</body>
+</html>

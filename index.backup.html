@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Smart Pelican Crossing & Simulasi Simpang Panorama - UPI Bandung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+<style>
+:root {
+    --bg: #0b0f19;
+    --card: #131b2e;
+    --card-hover: #18223a;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-border-glow: rgba(59, 130, 246, 0.3);
+    --fg: #f1f5f9;
+    --fg-muted: #94a3b8;
+    --fg-subtle: #64748b;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.25);
+    --safe: #10b981;
+    --safe-glow: rgba(16, 185, 129, 0.25);
+    --warn: #f59e0b;
+    --warn-glow: rgba(245, 158, 11, 0.25);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.25);
+    --canvas-bg: #f4f1e6;
+    --radius: 12px;
+    --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme="light"] {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --card-hover: #f1f5f9;
+    --card-border: #e2e8f0;
+    --card-border-glow: rgba(59, 130, 246, 0.2);
+    --fg: #0f172a;
+    --fg-muted: #475569;
+    --fg-subtle: #94a3b8;
+    --canvas-bg: #f4f1e6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: var(--font);
+    background-color: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+    padding: 16px;
+    min-height: 100vh;
+}
+
+/* Header & Navigation */
+.app-header {
+    max-width: 1560px;
+    margin: 0 auto 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #2563eb, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.35);
+}
+
+.brand-text h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(to right, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-text p {
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.badge-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.btn-header {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--fg);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+
+.btn-header:hover {
+    background: var(--card-hover);
+    border-color: var(--accent);
+}
+
+/* Main Grid Layout: 2 Columns */
+.main-layout {
+    max-width: 1560px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 560px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 1280px) {
+    .main-layout {
+        grid-template-columns: 500px 1fr;
+    }
+}
+
+@media (max-width: 1040px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Glass Cards */
+.panel {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.panel-title {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Left Column: Simulasi Panorama */
+.sim-controls-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--card-border);
+}
+
+.btn-group {
+    display: flex;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.btn-toggle {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-toggle.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-icon-toggle {
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--fg);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-icon-toggle.active {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--safe);
+    color: var(--safe);
+}
+
+/* Pedestrian Crossing Push Button */
+.cross-action-container {
+    margin-bottom: 12px;
+}
+
+.btn-cross-main {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    font-family: var(--font);
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-cross-main:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+    filter: brightness(1.08);
+}
+
+.btn-cross-main:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-cross-main:disabled {
+    background: #334155;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Panorama Simulation Canvas */
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--canvas-bg);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--card-border);
+}
+
+#panorama-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 720 / 900;
+}
+
+/* Live Signal Phase HUD */
+.phase-status-card {
+    margin-top: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.phase-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #60a5fa;
+}
+
+.phase-time {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f59e0b;
+}
+
+.phase-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.phase-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.signals-mini-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.signal-chip {
+    padding: 5px 4px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+}
+
+.signal-chip .sig-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.sig-dot.green { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.sig-dot.yellow { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.sig-dot.red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+/* Route engineering collapsible */
+.route-info-box {
+    margin-top: 12px;
+    font-size: 0.76rem;
+    color: var(--fg-muted);
+    background: rgba(0, 0, 0, 0.15);
+    border-left: 3px solid var(--warn);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+}
+
+/* Right Column: Video Detection & AI Decision Center */
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* AI Gap Decision Hero Card */
+.ai-decision-card {
+    background: linear-gradient(145deg, #162036, #101726);
+    border: 1px solid var(--card-border-glow);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-decision-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b);
+}
+
+.ai-hero-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .ai-hero-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ai-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    margin-bottom: 8px;
+}
+
+.status-safe {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid var(--safe);
+    color: #34d399;
+}
+
+.status-hold {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid var(--danger);
+    color: #f87171;
+}
+
+.status-idle {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid var(--accent);
+    color: #93c5fd;
+}
+
+.ai-metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.metric-pill {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.metric-pill .lbl {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    color: var(--fg-subtle);
+    font-weight: 600;
+}
+
+.metric-pill .val {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-top: 2px;
+}
+
+.confidence-gauge-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.confidence-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.confidence-bar-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.ai-reasoning-log {
+    margin-top: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.78rem;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+}
+
+/* Camera Tabs */
+.camera-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.cam-tab {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    color: var(--fg-muted);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cam-tab.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent);
+    color: #60a5fa;
+}
+
+.cam-tab .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #64748b;
+}
+
+.cam-tab.active .dot {
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+/* Video Stage */
+.video-display-area {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--card-border);
+    aspect-ratio: 16 / 9;
+}
+
+.video-display-area video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.video-display-area canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+}
+
+/* Video Controls & Tools Bar */
+.video-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+}
+
+.tool-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--card-border);
+    color: var(--fg);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--fg-muted);
+}
+
+.tool-btn.active {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: var(--warn);
+    color: #fbbf24;
+}
+
+.video-source-select {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--fg);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+}
+
+/* Calibration Sliders Accordion */
+.calibration-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+    font-size: 0.76rem;
+}
+
+.slider-group label {
+    display: flex;
+    justify-content: space-between;
+    color: var(--fg-muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.slider-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+/* Telemetry Grid */
+.telemetry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.telemetry-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.telemetry-box .title {
+    font-size: 0.7rem;
+    color: var(--fg-subtle);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.telemetry-box .number {
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="brand">
+        <div class="brand-icon">🚦</div>
+        <div class="brand-text">
+            <h1>Smart Pelican Crossing & Simulasi Simpang Panorama</h1>
+            <p>Studi Kasus: Persimpangan UPI & Jl. Dr. Setiabudi Bandung &mdash; AI Gap-Acceptance</p>
+        </div>
+    </div>
+    <div class="header-actions">
+        <span class="badge-tag">Duplikat Terpadu</span>
+        <a href="ai-testbed.html" class="btn-header" target="_blank">🧪 AI Testbed (Validasi 100x)</a>
+        <button id="theme-toggle" class="btn-header">🌓 Tema</button>
+    </div>
+</header>
+
+<main class="main-layout">
+
+    <!-- KOLOM KIRI: SIMULASI GEOMETRIS SIMPANG PANORAMA -->
+    <section class="panel left-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">🗺️ Simulasi Simpang Panorama (UPI)</h2>
+            <span class="badge-tag" style="background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">Real-Time 2D</span>
+        </div>
+
+        <!-- Kontrol Kecepatan & Lingkungan -->
+        <div class="sim-controls-bar">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.75rem;color:var(--fg-muted);font-weight:600;">Kecepatan:</span>
+                <div class="btn-group">
+                    <button class="btn-toggle active" data-speed="1">1×</button>
+                    <button class="btn-toggle" data-speed="3">3×</button>
+                    <button class="btn-toggle" data-speed="6">6×</button>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button id="btn-night" class="btn-icon-toggle">🌙 Malam</button>
+                <button id="btn-sound" class="btn-icon-toggle active">🔊 Suara: Nyala</button>
+                <button id="btn-reset-sim" class="btn-icon-toggle">🔄 Reset</button>
+            </div>
+        </div>
+
+        <!-- Tombol Permintaan Pejalan Kaki (Push Button) -->
+        <div class="cross-action-container">
+            <button id="btn-pedestrian-call" class="btn-cross-main" onclick="triggerPedestrianCross()">
+                <span>🚶‍♂️</span>
+                <span id="btn-ped-text">Minta Menyeberang (Push Button)</span>
+            </button>
+        </div>
+
+        <!-- Canvas Visual Simpang Panorama -->
+        <div class="canvas-wrapper">
+            <canvas id="panorama-canvas" width="720" height="900" aria-label="Simulasi arus geometris simpang Panorama UPI Bandung"></canvas>
+        </div>
+
+        <!-- Live Signal Phase HUD -->
+        <div class="phase-status-card">
+            <div class="phase-header">
+                <span class="phase-name" id="hud-phase-name">Fase 1 – Arus Arteri Setiabudi (A & B)</span>
+                <span class="phase-time" id="hud-phase-timer">50 s</span>
+            </div>
+            <div class="phase-bar-track">
+                <div class="phase-bar-fill" id="hud-phase-bar"></div>
+            </div>
+            <div class="signals-mini-row">
+                <div class="signal-chip">
+                    <span class="sig-dot green" id="sig-dot-a"></span>
+                    <span>Jalan A (L1/L3)</span>
+                </div>
+                <div class="signal-chip">
+                    <span class="sig-dot green" id="sig-dot-b"></span>
+                    <span>Jalan B</span>
+                </div>
+                <div class="signal-chip">
+                    <span class="sig-dot red" id="sig-dot-p"></span>
+                    <span>Jl. Panorama</span>
+                </div>
+                <div class="signal-chip">
+                    <span class="sig-dot red" id="sig-dot-ped"></span>
+                    <span>Pejalan Kaki</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rekayasa Rute Legend -->
+        <div class="route-info-box">
+            <strong>Rekayasa Lalu Lintas Simpang:</strong>
+            Kendaraan dari Jalan A (Setiabudi arah atas) dilarang belok kanan langsung ke Jl. Panorama &mdash; wajib lurus, putar balik di bukaan U-turn atas, lalu masuk lewat Jalan B. Pejalan kaki menyeberang aman di Fase 3 saat semua kendaraan merah mutlak.
+        </div>
+    </section>
+
+
+    <!-- KOLOM KANAN: PUSAT DETEKSI VIDEO CCTV & AI DECISION ENGINE -->
+    <section class="right-column">
+
+        <!-- AI Gap Decision Card -->
+        <div class="ai-decision-card">
+            <div class="panel-header" style="margin-bottom:8px;">
+                <h3 style="font-size:0.95rem;font-weight:700;display:flex;align-items:center;gap:8px;">
+                    <span>🧠</span> AI Gap-Acceptance Engine
+                </h3>
+                <span class="badge-tag" id="ai-model-badge">TensorFlow COCO-SSD / Motion</span>
+            </div>
+
+            <div class="ai-hero-grid">
+                <div>
+                    <div id="ai-decision-badge" class="ai-status-badge status-idle">
+                        <span id="ai-status-icon">⏳</span>
+                        <span id="ai-status-text">MEMANTAU CELAH ARUS</span>
+                    </div>
+                    <div class="ai-metrics-strip">
+                        <div class="metric-pill">
+                            <div class="lbl">Celah Kritis (Tcrit)</div>
+                            <div class="val" id="metric-critical-gap">7.5 s</div>
+                        </div>
+                        <div class="metric-pill">
+                            <div class="lbl">Celah Terdekat (Tgap)</div>
+                            <div class="val" id="metric-nearest-gap">-</div>
+                        </div>
+                        <div class="metric-pill">
+                            <div class="lbl">Kepadatan Arus</div>
+                            <div class="val" id="metric-density">-</div>
+                        </div>
+                        <div class="metric-pill">
+                            <div class="lbl">Okupansi Refuge</div>
+                            <div class="val" id="metric-refuge">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="confidence-gauge-box">
+                    <div class="confidence-header">
+                        <span>Skor Keyakinan (Confidence)</span>
+                        <span id="confidence-percentage" style="font-family:var(--font-mono);font-weight:700;color:#60a5fa;">0%</span>
+                    </div>
+                    <div class="confidence-bar-track">
+                        <div class="confidence-bar-fill" id="confidence-bar-fill"></div>
+                    </div>
+                    <span style="font-size:0.68rem;color:var(--fg-subtle);margin-top:6px;">
+                        Tingkat kepastian keputusan AI mempertimbangkan variansi kecepatan, penalti kepadatan, & margin jarak aman.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Penalaran Langkah-demi-Langkah AI -->
+            <div class="ai-reasoning-log" id="ai-reasoning-log">
+                Menunggu input video untuk analisis celah dan estimasi waktu tiba (ETA) kendaraan...
+            </div>
+        </div>
+
+        <!-- CCTV Video Feeds Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">📹 Pemantauan Kamera CCTV Persimpangan</h3>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <label style="font-size:0.75rem;color:var(--fg-muted);font-weight:600;">Pilih Sumber Video:</label>
+                    <select id="preset-video-select" class="video-source-select" onchange="changeVideoPreset(this.value)">
+                        <option value="assets/traffic-video-web.mp4">traffic-video-web.mp4 (Cepat ~40MB)</option>
+                        <option value="assets/traffic-video.mp4">traffic-video.mp4 (Full HD ~417MB)</option>
+                        <option value="assets/PELINDUNG - PEMANTAUAN LINGKUNGAN KOTA BANDUNG - Google Chrome 2026-09-30 17-06-27.mp4">CCTV Pelindung Bandung 1</option>
+                        <option value="assets/PELINDUNG - PEMANTAUAN LINGKUNGAN KOTA BANDUNG - Google Chrome 2026-09-30 17-22-57.mp4">CCTV Pelindung Bandung 2</option>
+                        <option value="upload">Upload File Video Sendiri...</option>
+                    </select>
+                    <input type="file" id="file-input" accept="video/*" style="display:none;">
+                </div>
+            </div>
+
+            <!-- Camera Switcher Tabs -->
+            <div class="camera-tabs">
+                <button class="cam-tab active" data-cam="A" onclick="switchCameraTab('A')">
+                    <span class="dot"></span>
+                    <span>Kamera 1: Jalan A (Zebra Cross & Setiabudi)</span>
+                </button>
+                <button class="cam-tab" data-cam="P" onclick="switchCameraTab('P')">
+                    <span class="dot"></span>
+                    <span>Kamera 2: Jl. Panorama (Gap-Out & Antrean)</span>
+                </button>
+                <button class="cam-tab" data-cam="B" onclick="switchCameraTab('B')">
+                    <span class="dot"></span>
+                    <span>Kamera 3: Jalan B (Arah Bawah & Spillback)</span>
+                </button>
+            </div>
+
+            <!-- Video Player Display Container -->
+            <div class="video-display-area" id="video-display-area">
+                <video id="video-input" muted playsinline loop></video>
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+
+            <!-- Video Toolbar: Play/Pause, Tools, Markers -->
+            <div class="video-toolbar">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button id="btn-play-pause" class="tool-btn" onclick="togglePlay()">
+                        <span id="play-icon">▶️</span> <span id="play-text">Putar Video</span>
+                    </button>
+                    <button class="tool-btn" onclick="restartVideo()">⏮️ Ulangi</button>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button id="btn-mark-stopline" class="tool-btn" onclick="toggleMarkStopLine()">
+                        📍 Tandai Garis Henti
+                    </button>
+                    <button id="btn-mark-refuge" class="tool-btn" onclick="toggleMarkRefugeZone()">
+                        🚸 Tandai Zona Refuge
+                    </button>
+                    <button id="btn-toggle-detector" class="tool-btn" onclick="toggleDetectorMode()">
+                        ⚡ Mode Detektor: COCO-SSD
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kalibrasi Slider -->
+            <div class="calibration-strip">
+                <div class="slider-group">
+                    <label>Panjang Pantau (Kalibrasi): <span id="lbl-cal" style="color:var(--accent);font-family:var(--font-mono);">20 m</span></label>
+                    <input type="range" id="in-cal" min="5" max="60" value="20" step="1">
+                </div>
+                <div class="slider-group">
+                    <label>Threshold Gerakan: <span id="lbl-thresh" style="color:var(--accent);font-family:var(--font-mono);">30</span></label>
+                    <input type="range" id="in-thresh" min="10" max="80" value="30" step="2">
+                </div>
+                <div class="slider-group">
+                    <label>Batas Horizon Jalan: <span id="lbl-roadtop" style="color:var(--accent);font-family:var(--font-mono);">35%</span></label>
+                    <input type="range" id="in-roadtop" min="5" max="80" value="35" step="5">
+                </div>
+            </div>
+
+            <!-- Telemetri Kendaraan Terdeteksi -->
+            <div class="telemetry-grid">
+                <div class="telemetry-box">
+                    <div class="title">Objek Terlacak</div>
+                    <div class="number" id="tele-tracked-blobs">0</div>
+                </div>
+                <div class="telemetry-box">
+                    <div class="title">Mendekati Garis</div>
+                    <div class="number" id="tele-approaching">0</div>
+                </div>
+                <div class="telemetry-box">
+                    <div class="title">Kecepatan Rata-rata</div>
+                    <div class="number" id="tele-avg-speed">0 km/h</div>
+                </div>
+                <div class="telemetry-box">
+                    <div class="title">Jarak Rata-rata</div>
+                    <div class="number" id="tele-avg-distance">-</div>
+                </div>
+                <div class="telemetry-box">
+                    <div class="title">Estimasi Tiba (ETA)</div>
+                    <div class="number" id="tele-avg-eta">-</div>
+                </div>
+                <div class="telemetry-box">
+                    <div class="title">Status Antrean B</div>
+                    <div class="number" id="tele-spillback-status" style="font-size:0.95rem;color:#10b981;">Normal</div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+</main>
+
+<!-- Logika AI Engine Terpusat -->
+<script src="ai-engine.js"></script>
+
+<!-- Script Gabungan: Simulasi Simpang Panorama & Deteksi Video CCTV -->
+<script>
+/* =========================================================================
+   BAGIAN 1: SIMULASI GEOMETRIS SIMPANG PANORAMA (CANVAS 2D)
+   ========================================================================= */
+const canvas = document.getElementById('panorama-canvas');
+const context = canvas.getContext('2d');
+const AX = 300, BX = 420, LEN = 32, WID = 18;
+
+function mk(pts) {
+    const seg = []; let length = 0;
+    for (let i = 1; i < pts.length; i++) {
+        const distance = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+        seg.push([length, distance]); length += distance;
+    }
+    return { pts, seg, L: length, stops: [] };
+}
+
+function at(path, distance) {
+    let i = 0;
+    while (i < path.seg.length - 1 && distance > path.seg[i][0] + path.seg[i][1]) i++;
+    const a = path.pts[i], b = path.pts[i + 1];
+    const t = Math.min(1, Math.max(0, (distance - path.seg[i][0]) / path.seg[i][1]));
+    return { x: a[0] + (b[0] - a[0]) * t, y: a[1] + (b[1] - a[1]) * t, a: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+}
+
+function find(path, predicate) {
+    for (let distance = 0; distance < path.L; distance++) {
+        const point = at(path, distance);
+        if (predicate(point.x, point.y)) return distance;
+    }
+    return 1e9;
+}
+
+const arc = [], arc2 = [];
+for (let i = 0; i <= 12; i++) {
+    let angle = Math.PI + Math.PI * i / 12;
+    arc.push([360 + 60 * Math.cos(angle), 295 + 60 * Math.sin(angle)]);
+    angle = Math.PI * i / 12;
+    arc2.push([360 + 60 * Math.cos(angle), 480 + 60 * Math.sin(angle)]);
+}
+
+const panOut = [[BX, 462], [433, 476], [470, 488], [760, 488]];
+const paths = {
+    Astr: mk([[AX, 930], [AX, -40]]),
+    Avit: mk([[AX, 930], [AX, 485], [288, 462], [268, 449], [-40, 449]]),
+    Au: mk([[AX, 930], [AX, 295], ...arc, [BX, 295], [BX, 930]]),
+    Aup: mk([[AX, 930], [AX, 295], ...arc, [BX, 295], ...panOut]),
+    Bu: mk([[BX, -40], [BX, 480], ...arc2, [AX, 480], [AX, -40]]),
+    Bdn: mk([[BX, -40], [BX, 930]]),
+    Bpan: mk([[BX, -40], ...panOut]),
+    Pin: mk([[760, 533], [470, 533], [446, 540], [BX, 558], [BX, 930]]),
+    Pvit: mk([[760, 490], [470, 490], [440, 490], [410, 490], [380, 490], [350, 490], [320, 490], [300, 480], [300, 455], [290, 435], [270, 425], [240, 425], [-40, 425]])
+};
+
+const addStop = (path, signal, predicate) => path.stops.push({ sig: signal, s: find(path, predicate) });
+['Astr', 'Avit', 'Au', 'Aup'].forEach(key => addStop(paths[key], 'A', (x, y) => x < 310 && y <= 650));
+addStop(paths.Bu, 'L4', (x, y) => x > 415 && y >= 470);
+['Au', 'Bu', 'Bdn', 'Bpan'].forEach(key => addStop(paths[key], 'B', (x, y) => x > 415 && y >= 445));
+['Au', 'Bdn'].forEach(key => addStop(paths[key], 'BZ', (x, y) => x > 415 && y >= 590));
+addStop(paths.Pin, 'P', (x, y) => x <= 560);
+addStop(paths.Pin, 'BZ', (x, y) => x < 430 && y >= 590);
+addStop(paths.Pvit, 'P', (x, y) => x <= 560);
+
+const phases = [
+    { n: 'Fase 1 – Arus Setiabudi (A & B)', d: 50, range: [45, 55], g: ['A', 'B', 'BZ', 'L4'] },
+    { n: 'Transisi 1 – Pengosongan Simpang A', d: 4, g: [], yellow: { A: 3 } },
+    { n: 'Fase 2 – Arus Sekunder Jl. Panorama', d: 17.5, range: [15, 20], g: ['P', 'BZ'] },
+    { n: 'Transisi 2 – Pengosongan Simpang B', d: 4, g: [], yellow: { P: 3 } },
+    { n: 'Fase 3A – Pelican Walk (Penyeberang Hijau)', d: 10, g: [], ped: 'solid' },
+    { n: 'Fase 3B – Pelican Clearance (Berkedip)', d: 4, g: [], ped: 'flash' },
+    { n: 'Transisi 3 – Pengosongan Zebra Cross', d: 2, g: [] },
+    { n: 'Prioritas Antrean Jalan B', d: 10, g: ['B', 'BZ'] }
+];
+
+let pedestrianTimer = 0, uid = 0, phase = 0, phaseTime = 0, cars = [], pedestrians = [], simSpeed = 1;
+let pedestrianBeepElapsed = 0;
+let clearingJalanB = false;
+const videoTrafficState = {
+    panoramaCameraActive: false,
+    panoramaGapOut: false,
+    panoramaDensityPer100m: 0,
+    panoramaQueueLength_m: 0,
+    jalanBCameraActive: false,
+    jalanBSpillback: false,
+    jalanBQueueLength_m: 0,
+    arterialCameraActive: false,
+    arterialHeadwaySeconds: 0,
+    arterialDensityPer100m: 0,
+    arterialAverageSpeed_kmh: 0,
+    pedestrianRequested: false,
+    pedestrianVerified: false
+};
+let timers = { a: 0, b: 1, p: 2, w: 0 };
+const signals = {}, yellow = {}, refuge = { L: 213, R: 507 };
+let soundEnabled = true, audioContext = null, lastBeep = null, lastBeepAt = 0, night = false;
+
+function enterPhase(index) {
+    phase = index;
+    phaseTime = 0;
+    const current = phases[phase];
+    if (current.range) {
+        const cameraActive = phase === 0 ? videoTrafficState.arterialCameraActive : videoTrafficState.panoramaCameraActive;
+        const density = phase === 0 ? videoTrafficState.arterialDensityPer100m : videoTrafficState.panoramaDensityPer100m;
+        current.d = cameraActive
+            ? current.range[0] + AIEngine.clamp(density / 30, 0, 1) * (current.range[1] - current.range[0])
+            : (current.range[0] + current.range[1]) / 2;
+    }
+    updateSignals();
+    updateHUDPhase();
+}
+
+function updateHUDPhase() {
+    const current = phases[phase];
+    const nameEl = document.getElementById('hud-phase-name');
+    const timerEl = document.getElementById('hud-phase-timer');
+    const barEl = document.getElementById('hud-phase-bar');
+    if (!nameEl) return;
+
+    nameEl.innerText = current.n;
+    const remaining = Math.max(0, Math.ceil(current.d - phaseTime));
+    timerEl.innerText = `${remaining} s`;
+    const progress = Math.min(100, Math.max(0, (phaseTime / current.d) * 100));
+    barEl.style.width = `${progress}%`;
+
+    // Mini signal dots
+    const dotA = document.getElementById('sig-dot-a');
+    const dotB = document.getElementById('sig-dot-b');
+    const dotP = document.getElementById('sig-dot-p');
+    const dotPed = document.getElementById('sig-dot-ped');
+
+    if (dotA) dotA.className = `sig-dot ${signals['A'] ? 'green' : yellow['A'] ? 'yellow' : 'red'}`;
+    if (dotB) dotB.className = `sig-dot ${signals['B'] ? 'green' : yellow['B'] ? 'yellow' : 'red'}`;
+    if (dotP) dotP.className = `sig-dot ${signals['P'] ? 'green' : yellow['P'] ? 'yellow' : 'red'}`;
+    if (dotPed) dotPed.className = `sig-dot ${current.ped ? 'green' : 'red'}`;
+}
+
+function pedestrianAudio(dt) {
+    if (!soundEnabled) return;
+    const current = phases[phase];
+    if (!current.ped) { lastBeep = null; return; }
+    pedestrianBeepElapsed += dt;
+    const interval = current.ped === 'flash' ? 0.3 : 0.65;
+    if (pedestrianBeepElapsed < interval) return;
+    pedestrianBeepElapsed = 0;
+    try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.frequency.setValueAtTime(current.ped === 'flash' ? 1040 : 880, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.04, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.12);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.12);
+    } catch (e) {}
+}
+
+function stepPedestrians(dt) {
+    const canWalk = Boolean(phases[phase].ped);
+    if (!phases[phase].ped) {
+        pedestrianTimer -= dt;
+        if (pedestrianTimer <= 0) {
+            pedestrianTimer = 1.2 + Math.random() * 1.5;
+            const side = Math.random() < .5 ? 0 : 1;
+            if (pedestrians.filter(p => p.s === side && p.st === 'wait').length < 4) {
+                pedestrians.push({ s: side, x: (side ? refuge.R : refuge.L) + Math.random() * 16 - 8, y: 608 + Math.random() * 24, st: 'wait', dl: null, t: 0 });
+            }
+        }
+    }
+    pedestrians.forEach(person => {
+        if (person.st === 'wait') {
+            if (canWalk) {
+                if (person.dl === null) person.dl = Math.random() * 2.5;
+                person.dl -= dt;
+                if (person.dl <= 0) person.st = 'walk';
+            }
+        } else if (person.st === 'walk') {
+            const target = person.s ? refuge.L : refuge.R;
+            const distance = target - person.x;
+            const step = 48 * dt;
+            if (Math.abs(distance) <= step) { person.x = target; person.st = 'done'; person.t = 0; }
+            else person.x += Math.sign(distance) * step;
+        } else person.t += dt;
+    });
+    pedestrians = pedestrians.filter(p => !(p.st === 'done' && p.t > 2));
+}
+
+const nightCanvas = document.createElement('canvas');
+nightCanvas.width = 720; nightCanvas.height = 900;
+(function () {
+    const nightContext = nightCanvas.getContext('2d');
+    nightContext.fillStyle = 'rgba(6,12,30,.62)';
+    nightContext.fillRect(0, 0, 720, 900);
+    nightContext.globalCompositeOperation = 'destination-out';
+    nightContext.translate(360, 620);
+    nightContext.scale(1, .36);
+    const gradient = nightContext.createRadialGradient(0, 0, 20, 0, 0, 175);
+    gradient.addColorStop(0, 'rgba(0,0,0,1)');
+    gradient.addColorStop(.6, 'rgba(0,0,0,.85)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    nightContext.fillStyle = gradient;
+    nightContext.beginPath();
+    nightContext.arc(0, 0, 175, 0, 7);
+    nightContext.fill();
+})();
+
+function updateSignals() {
+    const current = phases[phase];
+    ['A', 'B', 'BZ', 'P', 'L4'].forEach(key => {
+        signals[key] = current.g.includes(key);
+        yellow[key] = Boolean(current.yellow?.[key] && phaseTime < current.yellow[key]) || Boolean(phase === 3 && clearingJalanB && key === 'B' && phaseTime < 3);
+    });
+}
+
+function isFree(x, y) {
+    return !cars.some(car => {
+        const point = at(car.p, car.s);
+        return Math.hypot(point.x - x, point.y - y) < 55;
+    });
+}
+
+function spawn(key, color, tag) {
+    const path = paths[key], point = at(path, 0);
+    const count = cars.filter(car => car.p.pts[0][0] === path.pts[0][0] && car.p.pts[0][1] === path.pts[0][1] && car.v < 5).length;
+    if (count < 5 && isFree(point.x, point.y)) cars.push({ p: path, s: 0, v: 60, col: color, tag, k: key, id: ++uid });
+}
+
+function step(dt) {
+    phaseTime += dt;
+    const headwayRequest = phase === 0 && videoTrafficState.arterialCameraActive && videoTrafficState.arterialHeadwaySeconds > 3;
+    const gapOutRequest = phase === 2 && videoTrafficState.panoramaCameraActive && videoTrafficState.panoramaGapOut;
+    const spillbackRequest = phase === 2 && videoTrafficState.jalanBSpillback;
+    const pedestrianRequest = videoTrafficState.pedestrianRequested && videoTrafficState.pedestrianVerified;
+
+    if (headwayRequest || (pedestrianRequest && [0, 2, 7].includes(phase))) phaseTime = Math.max(phaseTime, phases[phase].d);
+    if (gapOutRequest || spillbackRequest) phaseTime = Math.max(phaseTime, phases[phase].d);
+
+    if (phaseTime >= phases[phase].d) {
+        let nextPhase;
+        if (phase === 0) nextPhase = 1;
+        else if (phase === 1) nextPhase = pedestrianRequest ? 4 : 2;
+        else if (phase === 2) nextPhase = 3;
+        else if (phase === 3) {
+            nextPhase = clearingJalanB ? (pedestrianRequest ? 4 : 0) : videoTrafficState.jalanBSpillback ? 7 : (pedestrianRequest ? 4 : 0);
+            clearingJalanB = false;
+        } else if (phase === 4) nextPhase = 5;
+        else if (phase === 5) nextPhase = 6;
+        else if (phase === 6) {
+            // Selesai menyeberang
+            videoTrafficState.pedestrianRequested = false;
+            videoTrafficState.pedestrianVerified = false;
+            onPedestrianCrossingComplete();
+            nextPhase = 0;
+        } else if (phase === 7) {
+            clearingJalanB = true;
+            nextPhase = 3;
+        } else nextPhase = 0;
+        enterPhase(nextPhase);
+    }
+
+    updateSignals();
+    updateHUDPhase();
+    pedestrianAudio(dt);
+    timers.a -= dt; timers.b -= dt; timers.p -= dt;
+
+    if (timers.a <= 0) {
+        timers.a = 3 + Math.random() * 2.5;
+        const r = Math.random();
+        r < .4 ? spawn('Astr', '#7d8f78') : r < .6 ? spawn('Avit', '#7d8f78') : spawn(Math.random() < .5 ? 'Aup' : 'Au', '#b0765a', 1);
+    }
+    if (timers.b <= 0) {
+        timers.b = 3.5 + Math.random() * 2.5;
+        const r = Math.random();
+        spawn(r < .35 ? 'Bpan' : r < .55 ? 'Bu' : 'Bdn', '#6b7f8a');
+    }
+    if (timers.p <= 0) {
+        timers.p = 6 + Math.random() * 4;
+        spawn(Math.random() < .5 ? 'Pvit' : 'Pin', '#8a8a6a');
+    }
+
+    stepPedestrians(dt);
+
+    cars.forEach(car => {
+        const point = at(car.p, car.s), cosine = Math.cos(point.a), sine = Math.sin(point.a), front = car.s + LEN / 2;
+        let limit = car.k === 'Pin' ? 70 : 95;
+        const brake = distance => Math.sqrt(2 * 200 * Math.max(distance, 0));
+        const relative = other => {
+            const q = at(other.p, other.s), dx = q.x - point.x, dy = q.y - point.y;
+            return { o: other, f: dx * cosine + dy * sine, l: Math.abs(-dx * sine + dy * cosine), d: Math.hypot(dx, dy), c: Math.cos(q.a - point.a) };
+        };
+        const others = cars.filter(other => other !== car).map(relative);
+
+        car.p.stops.forEach(stop => {
+            if (stop.s < front - 3) return;
+            const distance = stop.s - front;
+            if (!signals[stop.sig]) limit = Math.min(limit, brake(distance));
+            else if (distance < 70 && others.some(r => r.f > distance + 8 && r.f < distance + LEN + 70 && r.l < 15 && r.c > -.3 && r.o.v < 8)) {
+                limit = Math.min(limit, brake(distance));
+            }
+        });
+
+        let clearDistance = 99;
+        others.forEach(r => {
+            if (r.f > 0 && r.f < 100 && r.l < 15 && r.c > -.3) clearDistance = Math.min(clearDistance, brake(r.f - LEN - 6));
+        });
+
+        const hold = others.some(r => r.d < LEN + 16 && r.f > 1 && r.c > -.3 && (r.o.id < car.id || r.l < 15));
+        car.g = (hold || clearDistance < 1) && car.v < 1 ? (car.g || 0) + dt : 0;
+        if (hold) clearDistance = 0;
+        if (car.g < 3) limit = Math.min(limit, clearDistance);
+
+        car.v = car.v < limit ? Math.min(limit, car.v + 150 * dt) : Math.max(limit, car.v - 320 * dt);
+        car.s += car.v * dt;
+    });
+
+    cars = cars.filter(car => car.s < car.p.L);
+}
+
+function rr(x, y, w, h, r) {
+    context.beginPath();
+    context.roundRect(x, y, w, h, r);
+}
+
+function drawLamp(x, y, key, label, pedestrian) {
+    context.fillStyle = '#2f3634';
+    rr(x - 9, y - 24, 18, 48, 5);
+    context.fill();
+    const isGreen = signals[key], isYellow = yellow[key];
+    [['#e0463c', '#4a2a28', !isGreen && !isYellow], ['#e8c53a', '#4a442a', isYellow], ['#4cc36a', '#25402c', isGreen]].forEach((color, index) => {
+        context.fillStyle = color[2] ? color[0] : color[1];
+        context.beginPath();
+        context.arc(x, y - 14 + index * 14, 5, 0, 7);
+        context.fill();
+    });
+    context.fillStyle = pedestrian ? '#efe9d3' : '#2c332f';
+    context.font = 'bold 11px var(--font)';
+    context.textAlign = 'center';
+    context.fillText(label, x, y + 36);
+}
+
+function drawPedestrianLamp(x, y) {
+    const current = phases[phase];
+    const isGreen = current.ped === 'solid' || (current.ped === 'flash' && Math.floor(phaseTime * 4) % 2 === 0);
+    context.fillStyle = '#2f3634';
+    rr(x - 9, y - 17, 18, 34, 4);
+    context.fill();
+    context.fillStyle = current.ped ? '#4a2a28' : '#e0463c';
+    context.beginPath();
+    context.arc(x, y - 7, 5, 0, 7);
+    context.fill();
+    context.fillStyle = isGreen ? '#4cc36a' : '#25402c';
+    context.beginPath();
+    context.arc(x, y + 7, 5, 0, 7);
+    context.fill();
+}
+
+function draw() {
+    context.fillStyle = '#f4f1e6';
+    context.fillRect(0, 0, 720, 900);
+    context.fillStyle = '#d6d0b8';
+    context.fillRect(232, 0, 256, 900);
+    context.fillStyle = '#464f4f';
+    context.fillRect(250, 0, 220, 900);
+    context.fillRect(40, 385, 215, 80);
+    context.fillRect(465, 465, 255, 90);
+    context.fillStyle = '#464f4f';
+    context.fillRect(246, 387, 8, 76);
+    context.fillRect(466, 467, 8, 86);
+
+    // Bangunan sekitar simpang
+    [[50, 490, 'Vitasari Bakery', '#96735f'], [50, 642, 'Tiramisu Sulu', '#7d8f78']].forEach(building => {
+        context.fillStyle = '#eee6d2';
+        context.strokeStyle = '#4b544f';
+        context.lineWidth = 2;
+        rr(building[0], building[1], 120, 110, 6);
+        context.fill();
+        context.stroke();
+        context.fillStyle = building[3];
+        context.fillRect(building[0] + 6, building[1] + 6, 108, 20);
+        context.fillStyle = '#2c332f';
+        context.font = 'bold 11px var(--font)';
+        context.textAlign = 'center';
+        context.fillText(building[2], building[0] + 60, building[1] + 70);
+    });
+
+    // Pepohonan
+    [[520, 200], [640, 300], [580, 590], [620, 720], [560, 830]].forEach(tree => {
+        context.fillStyle = '#7d8f78';
+        context.beginPath();
+        context.arc(tree[0], tree[1], 14, 0, 7);
+        context.fill();
+    });
+
+    // Median jalan Setiabudi
+    context.fillStyle = '#c3c3b0';
+    rr(350, 295, 20, 170, 8);
+    context.fill();
+    for (const y of [307, 337, 367, 397, 453]) {
+        context.fillStyle = '#7d8f78';
+        context.beginPath();
+        context.arc(360, y, 6, 0, 7);
+        context.fill();
+    }
+
+    // Garis marka jalan
+    context.strokeStyle = '#efe9d3';
+    context.lineWidth = 2;
+    context.setLineDash([12, 12]);
+    context.beginPath();
+    context.moveTo(360, 650);
+    context.lineTo(360, 900);
+    context.moveTo(90, 425);
+    context.lineTo(240, 425);
+    context.moveTo(480, 510);
+    context.lineTo(700, 510);
+    context.stroke();
+    context.setLineDash([]);
+
+    // Zebra cross Jalan A
+    context.fillStyle = '#efe9d3';
+    for (let x = 254; x < 466; x += 22) context.fillRect(x, 600, 12, 40);
+    context.fillRect(252, 652, 96, 4);
+    context.fillRect(372, 590, 96, 4);
+    context.fillRect(372, 470, 96, 4);
+
+    // Pulau pelindung pejalan kaki (Refuge island)
+    [196, 490].forEach(x => {
+        context.fillStyle = '#8fa48a';
+        context.strokeStyle = '#4b544f';
+        context.lineWidth = 2;
+        rr(x, 600, 34, 40, 6);
+        context.fill();
+        context.stroke();
+        context.fillStyle = '#c3c3b0';
+        [608, 632].forEach(y => {
+            context.beginPath();
+            context.arc(x + (x < 300 ? 6 : 28), y, 3, 0, 7);
+            context.fill();
+        });
+    });
+
+    // Rambu Larangan Belok Kanan Langsung ke Panorama
+    context.save();
+    context.translate(0, -53);
+    context.fillStyle = '#fff';
+    context.strokeStyle = '#d33';
+    context.lineWidth = 4;
+    context.beginPath();
+    context.arc(360, 478, 17, 0, 7);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = '#222';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(354, 486);
+    context.lineTo(354, 472);
+    context.lineTo(366, 472);
+    context.moveTo(362, 467);
+    context.lineTo(367, 472);
+    context.lineTo(362, 477);
+    context.stroke();
+    context.strokeStyle = '#d33';
+    context.beginPath();
+    context.moveTo(349, 467);
+    context.lineTo(371, 489);
+    context.stroke();
+    context.restore();
+
+    // Teks Label Jalan & Arah
+    context.fillStyle = '#efe9d3';
+    context.font = 'bold 13px var(--font)';
+    context.textAlign = 'center';
+    context.fillText('Jalan A (Lembang) ↑', AX, 760);
+    context.fillText('Jalan B (Bandung) ↓', BX, 760);
+    context.fillStyle = '#2c332f';
+    context.fillText('Garlong / UPI Setiabudi', 360, 220);
+    context.fillText('Jl. Panorama →', 625, 455);
+    context.fillText('← Vitasari', 110, 375);
+
+    // Gambar Mobil
+    cars.forEach(car => {
+        const point = at(car.p, car.s);
+        context.save();
+        context.translate(point.x, point.y);
+        context.rotate(point.a);
+        context.fillStyle = '#22282a';
+        rr(-LEN / 2 - 1, -WID / 2 - 1, LEN + 2, WID + 2, 5);
+        context.fill();
+        context.fillStyle = car.col;
+        rr(-LEN / 2, -WID / 2, LEN, WID, 4);
+        context.fill();
+        context.fillStyle = '#e8e4d2';
+        rr(-6, -6, 14, 12, 2);
+        context.fill();
+        context.restore();
+    });
+
+    // Pejalan Kaki
+    pedestrians.forEach(person => {
+        context.fillStyle = '#e6d9b0';
+        context.strokeStyle = '#333';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.arc(person.x, person.y, 4, 0, 7);
+        context.fill();
+        context.stroke();
+    });
+
+    // Efek Malam
+    if (night) {
+        context.drawImage(nightCanvas, 0, 0);
+        context.save();
+        context.translate(360, 620);
+        context.scale(1, .36);
+        const lightGrad = context.createRadialGradient(0, 0, 10, 0, 0, 150);
+        lightGrad.addColorStop(0, 'rgba(255,238,180,.30)');
+        lightGrad.addColorStop(1, 'rgba(255,238,180,0)');
+        context.fillStyle = lightGrad;
+        context.beginPath();
+        context.arc(0, 0, 150, 0, 7);
+        context.fill();
+        context.restore();
+    }
+
+    // Titik tiang lampu jalan
+    [[238, 590], [482, 590]].forEach(point => {
+        context.fillStyle = night ? '#ffe9a8' : '#8b8f8a';
+        context.strokeStyle = '#2c332f';
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.arc(point[0], point[1], 5, 0, 7);
+        context.fill();
+        context.stroke();
+    });
+
+    // Lampu Lalu Lintas Simpang
+    drawLamp(336, 620, 'A', 'L3', 1);
+    drawLamp(360, 620, 'A', 'L1', 1);
+    drawLamp(360, 490, 'L4', 'L4 Putar Balik');
+    drawLamp(560, 415, 'P', 'Panorama');
+    drawPedestrianLamp(232, 620);
+    drawPedestrianLamp(488, 620);
+}
+
+let lastSimFrame = performance.now();
+function simLoop(now) {
+    const dt = Math.min(.05, (now - lastSimFrame) / 1000);
+    lastSimFrame = now;
+    for (let i = 0; i < simSpeed; i++) step(dt);
+    draw();
+    requestAnimationFrame(simLoop);
+}
+
+// Event Listeners Kontrol Simulasi
+document.querySelectorAll('.btn-group button[data-speed]').forEach(btn => {
+    btn.onclick = () => {
+        simSpeed = +btn.dataset.speed;
+        document.querySelectorAll('.btn-group button[data-speed]').forEach(b => b.classList.toggle('active', b === btn));
+    };
+});
+
+const btnNight = document.getElementById('btn-night');
+btnNight.onclick = () => {
+    night = !night;
+    btnNight.textContent = night ? '☀️ Siang' : '🌙 Malam';
+    btnNight.classList.toggle('active', night);
+};
+
+const btnSound = document.getElementById('btn-sound');
+btnSound.onclick = () => {
+    soundEnabled = !soundEnabled;
+    btnSound.textContent = soundEnabled ? '🔊 Suara: Nyala' : '🔇 Suara: Mati';
+    btnSound.classList.toggle('active', soundEnabled);
+};
+
+const btnResetSim = document.getElementById('btn-reset-sim');
+btnResetSim.onclick = () => {
+    cars = [];
+    pedestrians = [];
+    enterPhase(0);
+    pedestrianTimer = 0;
+    lastBeep = null;
+    timers = { a: 0, b: 1, p: 2, w: 0 };
+    updateSignals();
+};
+
+document.addEventListener('pointerdown', () => {
+    if (!audioContext) {
+        try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    }
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+});
+
+// API Publik Panorama Simulation
+window.PanoramaSim = {
+    state: () => ({
+        phase,
+        phaseName: phases[phase].n,
+        time: phaseTime,
+        duration: phases[phase].d,
+        signals: { ...signals },
+        pedGreen: Boolean(phases[phase].ped),
+        night,
+        vehicles: cars.length
+    }),
+    setVideoTraffic: state => Object.assign(videoTrafficState, state),
+    requestPedestrianCrossing: (requested, verified) => {
+        videoTrafficState.pedestrianRequested = Boolean(requested);
+        videoTrafficState.pedestrianVerified = Boolean(verified);
+        if (requested) {
+            updateDecisionDisplay("MENGALIKAN SINYAL KE FASE PEJALAN KAKI", "safe", 0.95);
+        }
+    },
+    reset: () => btnResetSim.click()
+};
+
+updateSignals();
+requestAnimationFrame(simLoop);
+
+
+/* =========================================================================
+   BAGIAN 2: DETEKSI VIDEO CCTV & AI GAP-ACCEPTANCE ENGINE
+   ========================================================================= */
+const el = id => document.getElementById(id);
+const video = el('video-input');
+const overlay = el('overlay-canvas');
+const octx = overlay.getContext('2d');
+
+const proc = document.createElement('canvas');
+const pctx = proc.getContext('2d', { willReadFrequently: true });
+const PROC_W = 160;
+let PROC_H = 90, DISPLAY_W = 480, DISPLAY_H = 270;
+
+let stopLineX = null;
+let markingMode = false;
+let markingRefugeZone = false;
+let refugeDragStart = null;
+let refugePreview = null;
+let refugeZone = null;
+let refugeCount = null;
+let refugePersonDetections = [];
+let prevGray = null;
+let trackedBlobs = [];
+let blobIdCounter = 0;
+let lastAnalysisTime = 0;
+const ANALYSIS_INTERVAL_MS = 150;
+let currentVehicles = [];
+
+let vehicleModel = null;
+let modelBusy = false;
+let lastModelRun = 0;
+let modelVehicleTracks = [];
+let vehicleTrackId = 0;
+const MODEL_INTERVAL_MS = 600;
+const VEHICLE_CLASSES = new Set(['car', 'motorcycle', 'bus', 'truck']);
+
+let aiState = "IDLE"; // IDLE, CHECKING, PED_CROSSING
+let checkTimer = null;
+let checkElapsed = 0;
+
+// Inisialisasi Model COCO-SSD
+async function initCOCOSSD() {
+    try {
+        if (window.cocoSsd) {
+            vehicleModel = await cocoSsd.load();
+            el('ai-model-badge').innerText = 'TensorFlow COCO-SSD Aktif';
+            el('ai-model-badge').style.borderColor = 'rgba(16, 185, 129, 0.4)';
+            el('ai-model-badge').style.color = '#34d399';
+        }
+    } catch (e) {
+        console.warn('COCO-SSD model fallback ke motion detection:', e);
+        el('ai-model-badge').innerText = 'Motion Detector (Fallback)';
+    }
+}
+initCOCOSSD();
+
+// Load Video Default
+video.src = 'assets/traffic-video-web.mp4';
+video.load();
+
+video.addEventListener('loadedmetadata', () => {
+    overlay.width = video.videoWidth || 640;
+    overlay.height = video.videoHeight || 360;
+    DISPLAY_W = overlay.width;
+    DISPLAY_H = overlay.height;
+    PROC_H = Math.round(PROC_W * DISPLAY_H / DISPLAY_W);
+    proc.width = PROC_W;
+    proc.height = PROC_H;
+    if (stopLineX === null) stopLineX = Math.round(DISPLAY_W * 0.45);
+    el('ai-reasoning-log').innerText = `Video siap diputar (${overlay.width}x${overlay.height}). Klik 'Putar Video' untuk memulai pemantauan.`;
+});
+
+video.addEventListener('error', () => {
+    el('ai-reasoning-log').innerText = 'Video gagal dimuat. Pastikan file ada di folder assets/ atau gunakan opsi Upload File.';
+});
+
+function changeVideoPreset(val) {
+    if (val === 'upload') {
+        el('file-input').click();
+    } else {
+        video.src = val;
+        video.load();
+        trackedBlobs = [];
+        modelVehicleTracks = [];
+    }
+}
+
+el('file-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    video.src = URL.createObjectURL(file);
+    video.load();
+    trackedBlobs = [];
+    modelVehicleTracks = [];
+});
+
+function togglePlay() {
+    if (video.paused) {
+        video.play();
+        el('play-icon').innerText = '⏸️';
+        el('play-text').innerText = 'Jeda';
+    } else {
+        video.pause();
+        el('play-icon').innerText = '▶️';
+        el('play-text').innerText = 'Putar Video';
+    }
+}
+
+function restartVideo() {
+    video.currentTime = 0;
+    video.play();
+    el('play-icon').innerText = '⏸️';
+    el('play-text').innerText = 'Jeda';
+}
+
+function toggleMarkStopLine() {
+    markingMode = !markingMode;
+    markingRefugeZone = false;
+    el('btn-mark-stopline').classList.toggle('active', markingMode);
+    el('btn-mark-refuge').classList.remove('active');
+    el('ai-reasoning-log').innerText = markingMode ? 'Klik pada layar video untuk menentukan posisi Garis Henti (Stop Line).' : 'Mode penandaan garis henti ditutup.';
+}
+
+function toggleMarkRefugeZone() {
+    markingRefugeZone = !markingRefugeZone;
+    markingMode = false;
+    el('btn-mark-refuge').classList.toggle('active', markingRefugeZone);
+    el('btn-mark-stopline').classList.remove('active');
+    el('ai-reasoning-log').innerText = markingRefugeZone ? 'Tarik kotak (drag) pada layar video untuk menandai Zona Tunggu Pejalan Kaki (Refuge Zone).' : 'Mode penandaan zona refuge ditutup.';
+}
+
+function toggleDetectorMode() {
+    const btn = el('btn-toggle-detector');
+    if (vehicleModel) {
+        // toggle off to motion
+        btn.dataset.forceMotion = btn.dataset.forceMotion === 'true' ? 'false' : 'true';
+        btn.innerText = btn.dataset.forceMotion === 'true' ? '⚡ Mode Detektor: Motion (Ringan)' : '⚡ Mode Detektor: COCO-SSD (Deep Learning)';
+    } else {
+        btn.innerText = '⚡ Mode Detektor: Motion (Aktif)';
+    }
+}
+
+// Mouse events on overlay canvas for marking stopline / refuge
+overlay.addEventListener('click', e => {
+    if (markingMode) {
+        const rect = overlay.getBoundingClientRect();
+        stopLineX = (e.clientX - rect.left) * overlay.width / rect.width;
+        markingMode = false;
+        el('btn-mark-stopline').classList.remove('active');
+        el('ai-reasoning-log').innerText = `Garis Henti tersimpan di X=${Math.round(stopLineX)}px. Estimasi jarak kini dihitung dari garis ini.`;
+    }
+});
+
+overlay.addEventListener('mousedown', e => {
+    if (!markingRefugeZone) return;
+    const rect = overlay.getBoundingClientRect();
+    refugeDragStart = {
+        x: (e.clientX - rect.left) * overlay.width / rect.width,
+        y: (e.clientY - rect.top) * overlay.height / rect.height
+    };
+});
+
+overlay.addEventListener('mousemove', e => {
+    if (!markingRefugeZone || !refugeDragStart) return;
+    const rect = overlay.getBoundingClientRect();
+    const currX = (e.clientX - rect.left) * overlay.width / rect.width;
+    const currY = (e.clientY - rect.top) * overlay.height / rect.height;
+    refugePreview = {
+        x: Math.min(refugeDragStart.x, currX),
+        y: Math.min(refugeDragStart.y, currY),
+        w: Math.abs(currX - refugeDragStart.x),
+        h: Math.abs(currY - refugeDragStart.y)
+    };
+});
+
+overlay.addEventListener('mouseup', () => {
+    if (markingRefugeZone && refugePreview) {
+        refugeZone = { ...refugePreview };
+        refugePreview = null;
+        refugeDragStart = null;
+        markingRefugeZone = false;
+        el('btn-mark-refuge').classList.remove('active');
+        el('ai-reasoning-log').innerText = `Zona Refuge tersimpan (${Math.round(refugeZone.w)}x${Math.round(refugeZone.h)}px). Detektor akan memantau orang di area ini.`;
+    }
+});
+
+// Tab Switcher Kamera
+let currentCameraTab = 'A';
+function switchCameraTab(cam) {
+    currentCameraTab = cam;
+    document.querySelectorAll('.cam-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.cam === cam);
+    });
+    el('ai-reasoning-log').innerText = `Menampilkan Kamera ${cam === 'A' ? '1 (Jalan A - Zebra Cross)' : cam === 'P' ? '2 (Jl. Panorama - Antrean Keluar)' : '3 (Jalan B - Setiabudi Arah Bawah)'}.`;
+}
+
+// Siklus Analisis Frame Video
+function processVideoFrame() {
+    if (!video.paused && !video.ended && video.videoWidth > 0) {
+        const now = performance.now();
+        const forceMotion = el('btn-toggle-detector').dataset.forceMotion === 'true';
+
+        if (now - lastAnalysisTime >= ANALYSIS_INTERVAL_MS) {
+            lastAnalysisTime = now;
+
+            // Gambar frame ke overlay canvas
+            octx.clearRect(0, 0, overlay.width, overlay.height);
+
+            // Garis Henti (Stopline)
+            if (stopLineX !== null) {
+                octx.save();
+                octx.strokeStyle = '#ef4444';
+                octx.lineWidth = 3;
+                octx.setLineDash([8, 6]);
+                octx.beginPath();
+                octx.moveTo(stopLineX, 0);
+                octx.lineTo(stopLineX, overlay.height);
+                octx.stroke();
+                octx.fillStyle = '#ef4444';
+                octx.font = 'bold 12px var(--font)';
+                octx.fillText('GARIS HENTI (STOP LINE)', stopLineX + 8, 24);
+                octx.restore();
+            }
+
+            // Zona Refuge
+            const zone = refugePreview || refugeZone;
+            if (zone) {
+                octx.save();
+                octx.fillStyle = 'rgba(16, 185, 129, 0.18)';
+                octx.strokeStyle = '#10b981';
+                octx.lineWidth = 2;
+                octx.setLineDash([6, 4]);
+                octx.fillRect(zone.x, zone.y, zone.w, zone.h);
+                octx.strokeRect(zone.x, zone.y, zone.w, zone.h);
+                octx.fillStyle = '#10b981';
+                octx.font = 'bold 11px var(--font)';
+                octx.fillText('ZONA REFUGE PEJALAN', zone.x + 4, Math.max(14, zone.y - 6));
+                octx.restore();
+            }
+
+            // Jalankan deteksi
+            if (vehicleModel && !forceMotion) {
+                runCOCOSSD(now);
+            } else {
+                runMotionDetection(now);
+            }
+        }
+    }
+    requestAnimationFrame(processVideoFrame);
+}
+requestAnimationFrame(processVideoFrame);
+
+// Deteksi berbasis TensorFlow COCO-SSD
+async function runCOCOSSD(now) {
+    if (modelBusy) return;
+    if (now - lastModelRun < MODEL_INTERVAL_MS) return;
+    modelBusy = true;
+    lastModelRun = now;
+
+    try {
+        const predictions = await vehicleModel.detect(video);
+        const vehicleDets = [];
+        const personDets = [];
+
+        predictions.forEach(p => {
+            const [x, y, w, h] = p.bbox;
+            if (VEHICLE_CLASSES.has(p.class) && p.score > 0.4) {
+                vehicleDets.push({ x: x + w / 2, y: y + h / 2, w, h, class: p.class, score: p.score });
+            } else if (p.class === 'person' && p.score > 0.35) {
+                personDets.push({ x: x + w / 2, y: y + h / 2, w, h, score: p.score });
+            }
+        });
+
+        // Hitung orang di refuge zone
+        if (refugeZone) {
+            refugeCount = personDets.filter(p => p.x >= refugeZone.x && p.x <= refugeZone.x + refugeZone.w && p.y >= refugeZone.y && p.y <= refugeZone.y + refugeZone.h).length;
+            el('metric-refuge').innerText = `${refugeCount} Orang`;
+        }
+
+        // Tracking kendaraan
+        updateVehicleTracking(vehicleDets, now);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        modelBusy = false;
+    }
+}
+
+// Deteksi fallback berbasis Motion / Frame Differencing
+function runMotionDetection(now) {
+    pctx.drawImage(video, 0, 0, PROC_W, PROC_H);
+    const frame = pctx.getImageData(0, 0, PROC_W, PROC_H);
+    const data = frame.data;
+    const gray = new Uint8Array(PROC_W * PROC_H);
+
+    for (let i = 0; i < data.length; i += 4) {
+        gray[i / 4] = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+    }
+
+    if (!prevGray) {
+        prevGray = gray;
+        return;
+    }
+
+    const thresh = Number(el('in-thresh').value);
+    const roadTopY = Math.round(PROC_H * (Number(el('in-roadtop').value) / 100));
+    const motionDets = [];
+
+    // Simple grid blob detection
+    const cell = 12;
+    for (let y = roadTopY; y < PROC_H - cell; y += cell) {
+        for (let x = 0; x < PROC_W - cell; x += cell) {
+            let diffCount = 0;
+            for (let dy = 0; dy < cell; dy += 2) {
+                for (let dx = 0; dx < cell; dx += 2) {
+                    const idx = (y + dy) * PROC_W + (x + dx);
+                    if (Math.abs(gray[idx] - prevGray[idx]) > thresh) diffCount++;
+                }
+            }
+            if (diffCount > 10) {
+                const scaleX = overlay.width / PROC_W;
+                const scaleY = overlay.height / PROC_H;
+                motionDets.push({
+                    x: (x + cell / 2) * scaleX,
+                    y: (y + cell / 2) * scaleY,
+                    w: cell * scaleX * 1.5,
+                    h: cell * scaleY * 1.5,
+                    class: 'vehicle',
+                    score: 0.8
+                });
+            }
+        }
+    }
+    prevGray = gray;
+    updateVehicleTracking(motionDets, now);
+}
+
+// Algoritma Pelacakan Kendaraan & Kecepatan
+function updateVehicleTracking(detections, now) {
+    const calM = Number(el('in-cal').value);
+    const pxPerMeter = overlay.width / calM;
+
+    // Gambar bounding box di overlay
+    detections.forEach(d => {
+        octx.save();
+        octx.strokeStyle = '#38bdf8';
+        octx.lineWidth = 2;
+        octx.strokeRect(d.x - d.w / 2, d.y - d.h / 2, d.w, d.h);
+        octx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+        octx.fillRect(d.x - d.w / 2, d.y - d.h / 2, d.w, d.h);
+        octx.fillStyle = '#38bdf8';
+        octx.font = 'bold 11px var(--font-mono)';
+        octx.fillText(`${d.class || 'kendaraan'}`, d.x - d.w / 2, Math.max(12, d.y - d.h / 2 - 4));
+        octx.restore();
+    });
+
+    // Hitung jarak ke stop line & estimasi kecepatan
+    const liveVehicles = [];
+    detections.forEach(d => {
+        if (stopLineX !== null) {
+            const distPx = d.x - stopLineX;
+            if (distPx > 0) { // mendekati dari kanan
+                const distM = distPx / pxPerMeter;
+                const speedMps = 9.5; 
+                liveVehicles.push({
+                    distance_m: distM,
+                    speed_mps: speedMps,
+                    approaching: true
+                });
+            }
+        }
+    });
+
+    currentVehicles = liveVehicles;
+
+    // Update telemetri
+    el('tele-tracked-blobs').innerText = detections.length;
+    el('tele-approaching').innerText = liveVehicles.length;
+
+    if (liveVehicles.length > 0) {
+        const avgDist = liveVehicles.reduce((s, v) => s + v.distance_m, 0) / liveVehicles.length;
+        const avgSpeed = liveVehicles.reduce((s, v) => s + v.speed_mps, 0) / liveVehicles.length;
+        el('tele-avg-distance').innerText = `${avgDist.toFixed(1)} m`;
+        el('tele-avg-speed').innerText = `${(avgSpeed * 3.6).toFixed(1)} km/h`;
+        el('tele-avg-eta').innerText = `${(avgDist / avgSpeed).toFixed(1)} s`;
+    } else {
+        el('tele-avg-distance').innerText = '-';
+        el('tele-avg-speed').innerText = '0 km/h';
+        el('tele-avg-eta').innerText = '-';
+    }
+
+    // Hitung keputusan AI Gap
+    evaluateAIGapDecision();
+}
+
+// Evaluasi Keputusan Menggunakan ai-engine.js
+function evaluateAIGapDecision() {
+    const calM = Number(el('in-cal').value);
+    const decision = AIEngine.computeDecision(currentVehicles, {
+        crossingWidth_m: 6.5,
+        pedSpeed_mps: 1.2,
+        marginSeconds: 2.0,
+        observationLength_m: calM
+    });
+
+    // Update Metrik Banner
+    el('metric-critical-gap').innerText = `${decision.criticalGap.toFixed(1)} s`;
+    el('metric-nearest-gap').innerText = isFinite(decision.nearestGap) ? `${decision.nearestGap.toFixed(1)} s` : 'Kosong';
+    el('metric-density').innerText = decision.trafficDensity ? `${decision.trafficDensity.level} (${decision.trafficDensity.vehiclesPer100m.toFixed(0)}/100m)` : '-';
+
+    const confPct = Math.round(decision.confidence * 100);
+    el('confidence-percentage').innerText = `${confPct}%`;
+    el('confidence-bar-fill').style.width = `${confPct}%`;
+
+    // Reasoning box
+    if (decision.reasoning && decision.reasoning.length) {
+        el('ai-reasoning-log').innerText = decision.reasoning[decision.reasoning.length - 1];
+    }
+
+    // Sinkronkan ke simulasi panorama
+    window.PanoramaSim?.setVideoTraffic({
+        arterialCameraActive: !video.paused && video.videoWidth > 0,
+        arterialDensityPer100m: decision.trafficDensity?.vehiclesPer100m || 0,
+        arterialAverageSpeed_kmh: 35
+    });
+
+    // Jika sedang dalam proses pengecekan permintaan menyeberang
+    if (aiState === "CHECKING") {
+        checkElapsed++;
+        if (decision.safe && decision.confidence >= 0.65) {
+            // Celah aman ditemukan!
+            aiState = "PED_CROSSING";
+            clearInterval(checkTimer);
+            updateDecisionDisplay("PELUANG AMAN DITEMUKAN &mdash; MEMULAI FASE PENYEBERANGAN", "safe", decision.confidence);
+            window.PanoramaSim?.requestPedestrianCrossing(true, true);
+            el('btn-ped-text').innerText = "Fase Pejalan Kaki Aktif...";
+        } else if (checkElapsed >= 14) {
+            // Courtesy timeout: jangan biarkan pejalan menunggu lebih dari 14 detik
+            aiState = "PED_CROSSING";
+            clearInterval(checkTimer);
+            updateDecisionDisplay("BATAS WAKTU TUNGGU TERCAPAI &mdash; MEMULAI SIKLUS SINYAL", "safe", 0.75);
+            window.PanoramaSim?.requestPedestrianCrossing(true, true);
+            el('btn-ped-text').innerText = "Fase Pejalan Kaki Aktif...";
+        } else {
+            updateDecisionDisplay(`MENCARI CELAH AMAN (${checkElapsed}s)... KEYAKINAN ${confPct}%`, "hold", decision.confidence);
+        }
+    } else if (aiState === "IDLE") {
+        if (decision.safe) {
+            updateDecisionDisplay("CELAH ARUS AMAN (SIAP MENYEBERANG)", "safe", decision.confidence);
+        } else {
+            updateDecisionDisplay("ARUS KENDARAAN RAPAT (TAHAN PENYEBERANG)", "hold", decision.confidence);
+        }
+    }
+}
+
+function updateDecisionDisplay(text, type, conf) {
+    const badge = el('ai-decision-badge');
+    const icon = el('ai-status-icon');
+    const txt = el('ai-status-text');
+
+    badge.className = `ai-status-badge status-${type}`;
+    icon.innerText = type === 'safe' ? '✅' : type === 'hold' ? '⛔' : '⏳';
+    txt.innerHTML = text;
+}
+
+// Trigger saat tombol minta menyeberang ditekan
+function triggerPedestrianCross() {
+    if (aiState !== "IDLE") return;
+    aiState = "CHECKING";
+    checkElapsed = 0;
+    el('btn-pedestrian-call').disabled = true;
+    el('btn-ped-text').innerText = "Mengecek Celah Arus Video...";
+    updateDecisionDisplay("MENGANALISIS CELAH LALU LINTAS & KECEPATAN...", "hold", 0.5);
+
+    if (checkTimer) clearInterval(checkTimer);
+    checkTimer = setInterval(() => {
+        evaluateAIGapDecision();
+    }, 1000);
+}
+
+function onPedestrianCrossingComplete() {
+    aiState = "IDLE";
+    el('btn-pedestrian-call').disabled = false;
+    el('btn-ped-text').innerText = "Minta Menyeberang (Push Button)";
+    updateDecisionDisplay("SIKLUS PENYEBERANGAN SELESAI &mdash; SISTEM SIAGA", "idle", 0.85);
+}
+
+// Slider listeners
+['in-cal', 'in-thresh', 'in-roadtop'].forEach(id => {
+    el(id).addEventListener('input', () => {
+        el('lbl-cal').innerText = el('in-cal').value + ' m';
+        el('lbl-thresh').innerText = el('in-thresh').value;
+        el('lbl-roadtop').innerText = el('in-roadtop').value + '%';
+    });
+});
+
+// Theme switcher
+const themeToggle = el('theme-toggle');
+themeToggle.onclick = () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+};
+</script>
+</body>
+</html>
